@@ -1,0 +1,14 @@
+.idea/
+*.py[cod]
+__pycache__/
+.venv/
+*.log
+local_settings.py
+db.sqlite3
+media/
+static/
+.DS_Store
+.env
+.env.*
+!.env.example
+.idea/workspace.xml
