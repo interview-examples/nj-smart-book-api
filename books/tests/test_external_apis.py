@@ -108,34 +108,97 @@ class GoogleBooksServiceTests(TestCase):
 
     def test_search_by_isbn(self):
         """Тест поиска книги по ISBN."""
-        with mock.patch.object(self.service, '_make_request') as mock_make_request:
-            mock_make_request.return_value = MOCK_GOOGLE_BOOKS_RESPONSE
-            result = self.service.get_book_data("9781234567897")
-
-            # Проверяем структуру и содержимое результата
-            self.assertIsNotNone(result)
-            self.assertEqual(result.title, "A Test-Book for Students")
-            self.assertEqual(result.author, "Test Author")
-            self.assertEqual(result.isbn, "9781234567897")
-            mock_make_request.assert_called_once_with(
+        isbn = "1234567890123"
+        with mock.patch.object(self.service, '_make_request') as mock_request:
+            mock_request.return_value = {
+                'items': [{
+                    'volumeInfo': {
+                        'title': 'Test Book',
+                        'authors': ['Test Author'],
+                        'industryIdentifiers': [{'type': 'ISBN_13', 'identifier': '1234567890123'}],
+                        'description': 'Test description',
+                        'publishedDate': '2020-01-01',
+                        'pageCount': 200,
+                        'language': 'en',
+                        'categories': ['Fiction'],
+                        'imageLinks': {'thumbnail': 'http://example.com/thumbnail.jpg'},
+                        'previewLink': 'http://example.com/preview',
+                        'averageRating': 4.5,
+                        'ratingsCount': 100
+                    }
+                }]
+            }
+            result = self.service.search_books(isbn=isbn)
+            self.assertIsInstance(result, list)
+            self.assertTrue(len(result) > 0)
+            self.assertEqual(result[0].isbn, '1234567890123')
+            self.assertEqual(result[0].title, 'Test Book')
+            mock_request.assert_called_once_with(
                 "https://www.googleapis.com/books/v1/volumes",
-                {'q': 'isbn:9781234567897', 'key': None},
+                {"q": f"isbn:{isbn}", "maxResults": 1},
                 "Google Books API error"
             )
 
     def test_search_by_title_author(self):
         """Тест поиска книги по названию и автору."""
-        with mock.patch('requests.get') as mock_get:
-            mock_response = mock.Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = MOCK_GOOGLE_BOOKS_SEARCH_RESPONSE
-            mock_get.return_value = mock_response
-            result = self.service.search_books("Test Book Test Author")
-
-            # Проверяем результат
+        with mock.patch.object(self.service, '_make_request') as mock_request:
+            mock_request.return_value = {
+                'items': [{
+                    'volumeInfo': {
+                        'title': 'Test Book',
+                        'authors': ['Test Author'],
+                        'industryIdentifiers': [{'type': 'ISBN_13', 'identifier': '1234567890123'}],
+                        'description': 'Test description',
+                        'publishedDate': '2020-01-01',
+                        'pageCount': 200,
+                        'language': 'en',
+                        'categories': ['Fiction'],
+                        'imageLinks': {'thumbnail': 'http://example.com/thumbnail.jpg'},
+                        'previewLink': 'http://example.com/preview',
+                        'averageRating': 4.5,
+                        'ratingsCount': 100
+                    }
+                }]
+            }
+            result = self.service.search_books(title='Test Book', author='Test Author')
+            self.assertIsInstance(result, list)
             self.assertTrue(len(result) > 0)
-            self.assertEqual(result[0].title, "A Test-Book for Students")
-            mock_get.assert_called_once()
+            self.assertEqual(result[0].title, 'Test Book')
+            self.assertEqual(result[0].author, 'Test Author')
+            mock_request.assert_called_once_with(
+                "https://www.googleapis.com/books/v1/volumes",
+                {"q": "intitle:Test Book+inauthor:Test Author", "maxResults": 5},
+                "Google Books API error"
+            )
+
+    def test_get_book_data(self):
+        """Тест получения данных о книге по ISBN."""
+        isbn = "9781234567897"
+        with mock.patch.object(self.service, '_make_request') as mock_request:
+            mock_request.return_value = {
+                'items': [{
+                    'volumeInfo': {
+                        'title': 'Test Book',
+                        'authors': ['Test Author'],
+                        'industryIdentifiers': [{'type': 'ISBN_13', 'identifier': isbn}],
+                        'description': 'Test description',
+                        'publishedDate': '2020-01-01',
+                        'pageCount': 200,
+                        'language': 'en',
+                        'categories': ['Fiction'],
+                        'imageLinks': {'thumbnail': 'http://example.com/thumbnail.jpg'},
+                        'previewLink': 'http://example.com/preview',
+                        'averageRating': 4.5,
+                        'ratingsCount': 100
+                    }
+                }]
+            }
+            result = self.service.get_book_data(isbn)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.isbn, isbn)
+            self.assertEqual(result.title, 'Test Book')
+            self.assertEqual(result.author, 'Test Author')
+            self.assertEqual(result.source, 'Google Books')
 
     def test_caching(self):
         """Тест кэширования запросов."""
@@ -159,34 +222,100 @@ class OpenLibraryServiceTests(TestCase):
 
     def test_search_by_isbn(self):
         """Тест поиска книги по ISBN."""
-        with mock.patch.object(self.service, '_make_request') as mock_make_request:
-            mock_make_request.return_value = MOCK_OPEN_LIBRARY_RESPONSE
-            result = self.service.get_book_data("9781234567897")
+        isbn = "9876543210987"
 
-            # Проверяем результат
-            self.assertIsNotNone(result)
-            self.assertEqual(result.title, "Test Book")
-            self.assertEqual(result.author, "Test Author")
-            mock_make_request.assert_called_once_with(
-                "https://openlibrary.org/api/books",
-                {'bibkeys': 'ISBN:9781234567897', 'format': 'json', 'jscmd': 'data'},
-                "Open Library API error"
-            )
+        def mock_request_side_effect(url, params, error_msg):
+            if 'api/books' in url and 'bibkeys' in params:
+                return {
+                    f'ISBN:{isbn}': {
+                        'title': 'Test Book',
+                        'authors': [{'key': '/authors/OL1A'}],
+                        'publish_date': '2020',
+                        'description': 'Test description',
+                        'number_of_pages': 200,
+                        'languages': [{'key': '/languages/eng'}],
+                        'subjects': [{'key': '/subjects/fiction'}],
+                        'covers': [12345],
+                        'identifiers': {
+                            'isbn_13': [isbn],
+                            'isbn_10': ['1234567890']
+                        }
+                    }
+                }
+            elif '/authors/OL1A' in url:
+                return {'name': 'Test Author'}
+            return {}
+
+        with mock.patch.object(self.service, '_make_request', side_effect=mock_request_side_effect):
+            result = self.service.search_books(isbn=isbn)
+            self.assertIsInstance(result, list)
+            self.assertTrue(len(result) > 0)
+            self.assertEqual(result[0].isbn, isbn)
+            self.assertEqual(result[0].title, 'Test Book')
 
     def test_search_by_title_author(self):
         """Тест поиска книги по названию и автору."""
-        with mock.patch('requests.get') as mock_get:
-            mock_response = mock.Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = MOCK_OPEN_LIBRARY_SEARCH_RESPONSE
-            mock_get.return_value = mock_response
-            result = self.service.search_books("Test Book Test Author")
+        isbn = "9876543210987"
 
-            # Проверяем результат
-            self.assertIsNotNone(result)
+        def mock_request_side_effect(url, params, error_msg):
+            if 'search.json' in url:
+                return {
+                    'docs': [{
+                        'title': 'Test Book',
+                        'author_name': ['Test Author'],
+                        'isbn': [isbn],
+                        'first_publish_year': 2020
+                    }]
+                }
+            elif f'isbn/{isbn}' in url:
+                return {
+                    'title': 'Test Book',
+                    'authors': [{'key': '/authors/OL1A'}],
+                    'publish_date': '2020',
+                    'description': 'Test description',
+                    'number_of_pages': 200,
+                    'languages': [{'key': '/languages/eng'}],
+                    'subjects': [{'key': '/subjects/fiction'}],
+                    'covers': [12345]
+                }
+            elif '/authors/OL1A' in url:
+                return {'name': 'Test Author'}
+            return {}
+
+        with mock.patch.object(self.service, '_make_request', side_effect=mock_request_side_effect):
+            result = self.service.search_books(title='Test Book', author='Test Author')
+            self.assertIsInstance(result, list)
             self.assertTrue(len(result) > 0)
-            self.assertEqual(result[0].title, "Test Book")
-            mock_get.assert_called_once()
+            self.assertEqual(result[0].title, 'Test Book')
+            self.assertEqual(result[0].author, 'Test Author')
+
+    def test_get_book_data(self):
+        """Тест получения данных о книге по ISBN."""
+        isbn = "9781234567897"
+
+        def mock_request_side_effect(url, params, error_msg):
+            if f'isbn/{isbn}' in url:
+                return {
+                    'title': 'Test Book',
+                    'authors': [{'key': '/authors/OL1A'}],
+                    'publish_date': '2020',
+                    'description': 'Test description',
+                    'number_of_pages': 200,
+                    'languages': [{'key': '/languages/eng'}],
+                    'subjects': [{'key': '/subjects/fiction'}],
+                    'covers': [12345]
+                }
+            elif '/authors/OL1A' in url:
+                return {'name': 'Test Author'}
+            return {}
+
+        with mock.patch.object(self.service, '_make_request', side_effect=mock_request_side_effect):
+            result = self.service.get_book_data(isbn)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.isbn, isbn)
+            self.assertEqual(result.title, 'Test Book')
+            self.assertEqual(result.author, 'Test Author')
+            self.assertEqual(result.source, 'Open Library')
 
     def test_caching(self):
         """Тест кэширования запросов."""
@@ -225,6 +354,20 @@ class NYTimesServiceTests(TestCase):
                 default_return={"num_results": 0}
             )
 
+    def test_get_book_review_no_results(self):
+        """Тест получения обзора книги когда нет результатов."""
+        with mock.patch.object(self.service, '_make_request') as mock_make_request:
+            mock_make_request.return_value = {"num_results": 0}
+            result = self.service.get_book_review("9781234567897")
+            self.assertIsNone(result)
+
+    def test_get_book_review_no_api_key(self):
+        """Тест получения обзора книги без API ключа."""
+        service = NYTimesService()
+        service.api_key = None
+        result = service.get_book_review("9781234567897")
+        self.assertIsNone(result)
+
     def test_caching(self):
         """Тест кэширования запросов."""
         with mock.patch.object(self.service, '_make_request') as mock_make_request:
@@ -244,75 +387,116 @@ class BookEnrichmentServiceTests(TestCase):
         """Настройка тестовых данных."""
         cache.clear()
         self.service = BookEnrichmentService()
-        self.google_patcher = mock.patch.object(self.service.google_books, 'get_book_data')
-        self.ol_patcher = mock.patch.object(self.service.open_library, 'get_book_data')
-        self.nyt_patcher = mock.patch.object(self.service.ny_times, 'get_book_review')
-        self.mock_google_get_book_data = self.google_patcher.start()
-        self.mock_ol_get_book_data = self.ol_patcher.start()
-        self.mock_nyt_get_book_review = self.nyt_patcher.start()
 
-        self.google_data = BookEnrichmentData(
-            isbn="9781234567897",
+    def tearDown(self):
+        """Очистка после тестов."""
+        cache.clear()
+
+    def test_enrich_book_data_google_success(self):
+        """Тест обогащения данных с успешным результатом от Google Books."""
+        isbn = "1234567890123"
+        google_data = BookEnrichmentData(
+            isbn=isbn,
             title="Google Test Book",
             author="Google Test Author",
             published_date="2023-01-01",
             source="Google Books"
         )
-        self.mock_google_get_book_data.return_value = self.google_data
 
-        self.ol_data = BookEnrichmentData(
-            isbn="9781234567897",
+        with mock.patch.object(self.service.google_books, 'search_books') as mock_google_search:
+            mock_google_search.return_value = [google_data]
+            result = self.service.enrich_book_data(isbn)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.title, 'Google Test Book')
+            self.assertEqual(result.source, 'Google Books')
+            mock_google_search.assert_called_once_with(query="", isbn=isbn)
+
+    def test_enrich_book_data_open_library_fallback(self):
+        """Тест обогащения данных с откатом на Open Library, если Google не вернул данных."""
+        isbn = "9876543210987"
+        ol_data = BookEnrichmentData(
+            isbn=isbn,
             title="Open Library Test Book",
             author="Open Library Test Author",
             published_date="2023-01-01",
             source="Open Library"
         )
-        self.mock_ol_get_book_data.return_value = self.ol_data
 
-        self.mock_nyt_get_book_review.return_value = "Test NY Times Review"
+        with mock.patch.object(self.service.google_books, 'search_books') as mock_google_search, \
+                mock.patch.object(self.service.open_library, 'search_books') as mock_ol_search:
+            mock_google_search.return_value = []
+            mock_ol_search.return_value = [ol_data]
+            result = self.service.enrich_book_data(isbn)
+            self.assertIsNotNone(result)
+            self.assertEqual(result.title, 'Open Library Test Book')
+            self.assertEqual(result.source, 'Open Library')
+            mock_google_search.assert_called_once_with(query="", isbn=isbn)
+            mock_ol_search.assert_called_once_with(query="", isbn=isbn)
 
-    def tearDown(self):
-        """Очистка после тестов."""
-        self.google_patcher.stop()
-        self.ol_patcher.stop()
-        self.nyt_patcher.stop()
-        cache.clear()
+    def test_enrich_book_data_no_results(self):
+        """Тест обогащения данных когда нет результатов ни от одного источника."""
+        isbn = "0000000000000"
 
-    def test_enrich_book_data_google_success(self):
-        """Тест обогащения данных с успешным результатом от Google Books."""
-        result = self.service.enrich_book_data("9781234567897")
-        self.assertEqual(result.title, "Google Test Book")
-        self.assertEqual(result.author, "Google Test Author")
-        self.assertEqual(result.ny_times_review, "Test NY Times Review")
-        self.assertEqual(self.mock_google_get_book_data.call_count, 1)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 0)  # Open Library не вызывается, так как Google вернул данные
-        self.assertEqual(self.mock_nyt_get_book_review.call_count, 1)
+        with mock.patch.object(self.service.google_books, 'search_books') as mock_google_search, \
+                mock.patch.object(self.service.open_library, 'search_books') as mock_ol_search:
+            mock_google_search.return_value = []
+            mock_ol_search.return_value = []
+            result = self.service.enrich_book_data(isbn)
+            self.assertIsNone(result)
 
-    def test_enrich_book_data_open_library_fallback(self):
-        """Тест обогащения данных с откатом на Open Library, если Google не вернул данных."""
-        self.mock_google_get_book_data.return_value = None
-        result = self.service.enrich_book_data("9781234567897")
-        self.assertEqual(result.title, "Open Library Test Book")
-        self.assertEqual(result.author, "Open Library Test Author")
-        self.assertEqual(result.ny_times_review, "Test NY Times Review")
-        self.assertEqual(self.mock_google_get_book_data.call_count, 1)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 1)
-        self.assertEqual(self.mock_nyt_get_book_review.call_count, 1)
+    def test_search_books(self):
+        """Тест поиска книг."""
+        query = "test book"
+        google_data = BookEnrichmentData(
+            isbn="1234567890123",
+            title="Google Test Book",
+            author="Google Test Author",
+            published_date="2023-01-01",
+            source="Google Books"
+        )
+        ol_data = BookEnrichmentData(
+            isbn="9876543210987",
+            title="Open Library Test Book",
+            author="Open Library Test Author",
+            published_date="2023-01-01",
+            source="Open Library"
+        )
+
+        with mock.patch.object(self.service.google_books, 'search_books') as mock_google_search, \
+                mock.patch.object(self.service.open_library, 'search_books') as mock_ol_search:
+            mock_google_search.return_value = [google_data]
+            mock_ol_search.return_value = [ol_data]
+            result = self.service.search_books(query)
+            self.assertIsNotNone(result)
+            self.assertEqual(len(result), 2)
+            self.assertEqual(result[0].title, 'Google Test Book')
+            self.assertEqual(result[1].title, 'Open Library Test Book')
 
     def test_caching(self):
         """Тест кэширования запросов в BookEnrichmentService."""
-        result1 = self.service.enrich_book_data("9781234567897")
-        self.assertEqual(self.mock_google_get_book_data.call_count, 1)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 0)
-        self.assertEqual(self.mock_nyt_get_book_review.call_count, 1)
+        isbn = "1234567890123"
+        google_data = BookEnrichmentData(
+            isbn=isbn,
+            title="Google Test Book",
+            author="Google Test Author",
+            published_date="2023-01-01",
+            source="Google Books"
+        )
 
-        self.mock_google_get_book_data.reset_mock()
-        self.mock_ol_get_book_data.reset_mock()
-        self.mock_nyt_get_book_review.reset_mock()
+        with mock.patch.object(self.service.google_books, 'search_books') as mock_google_search:
+            mock_google_search.return_value = [google_data]
 
-        result2 = self.service.enrich_book_data("9781234567897")
-        self.assertEqual(self.mock_google_get_book_data.call_count, 0)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 0)
-        self.assertEqual(self.mock_nyt_get_book_review.call_count, 0)
-        self.assertEqual(result1.title, result2.title)
-        self.assertEqual(result1.ny_times_review, result2.ny_times_review)
+            # Первый запрос - должен пойти к API
+            result1 = self.service.enrich_book_data(isbn)
+            self.assertIsNotNone(result1)
+            self.assertEqual(result1.title, "Google Test Book")
+            self.assertEqual(mock_google_search.call_count, 1)
+
+            # Сбрасываем мок для проверки кэширования
+            mock_google_search.reset_mock()
+
+            # Второй запрос - должен взять из кэша
+            result2 = self.service.enrich_book_data(isbn)
+            self.assertIsNotNone(result2)
+            self.assertEqual(result2.title, "Google Test Book")
+            self.assertEqual(mock_google_search.call_count, 0)  # Вызов не увеличился, значит из кэша

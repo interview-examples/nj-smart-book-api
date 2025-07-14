@@ -1,37 +1,46 @@
 from typing import Optional, Dict, Any, List
-from books.services.external_apis import BookEnrichmentService as ExternalEnrichmentService
+from books.services.external_apis import BookEnrichmentService
 from books.models import Book, BookISBN
 from books.services.book_service import BookService
 
 class EnrichmentService:
-    """Сервис для обогащения данных книг и поиска во внешних источниках."""
+    """Сервис для обогащения данных о книгах из внешних источников."""
 
-    def __init__(self, external_service: ExternalEnrichmentService = None, book_service: BookService = None):
-        self.external_service = external_service or ExternalEnrichmentService()
-        self.book_service = book_service or BookService()
+    def __init__(self, book_service: BookService):
+        self.book_service = book_service
+        self.external_service = BookEnrichmentService()
 
-    def enrich_book_by_isbn(self, isbn: str) -> Optional[Dict[str, Any]]:
-        """Обогащение данных книги по ISBN из внешних источников."""
-        # Сначала проверяем, есть ли книга в локальной базе
+    def enrich_book_by_isbn(self, isbn: str) -> Optional[Book]:
+        """
+        Обогащает данные о книге по ISBN, используя внешний сервис.
+        Если книга уже существует, обновляет ее; если нет - создает новую.
+        Args:
+            isbn: ISBN книги для обогащения.
+        Returns:
+            Optional[Book]: Обогащенный объект книги или None, если обогащение не удалось.
+        """
         book = self.book_service.get_book_by_isbn(isbn)
         enriched_data = self.external_service.enrich_book_data(isbn)
-        if enriched_data:
-            enriched_dict = enriched_data.__dict__  # Преобразуем в словарь
-            # Добавляем логику для сохранения нескольких ISBN
-            isbn_list = enriched_dict.get('industryIdentifiers', [])
-            if book:
-                updated_book = self.book_service.update_book(book.id, enriched_dict)
-                if updated_book and isbn_list:
-                    # Обновляем список ISBN для существующей книги
-                    self._update_book_isbns(updated_book, isbn_list)
-                return self._format_book_data(updated_book) if updated_book else None
-            else:
-                new_book = self.book_service.create_book(enriched_dict)
-                if new_book and isbn_list:
-                    # Создаем записи ISBN для новой книги
-                    self._create_book_isbns(new_book, isbn_list)
-                return self._format_book_data(new_book)
-        return None
+        if not enriched_data:
+            return None
+        # Проверяем, является ли enriched_data словарем или объектом с методом dict()
+        if hasattr(enriched_data, 'dict'):
+            enriched_dict = enriched_data.dict()
+        else:
+            enriched_dict = vars(enriched_data) if not isinstance(enriched_data, dict) else enriched_data
+        # Фильтруем только поддерживаемые поля для модели Book
+        valid_fields = {field.name for field in Book._meta.get_fields()}
+        filtered_data = {k: v for k, v in enriched_dict.items() if k in valid_fields}
+        if book:
+            updated_book = self.book_service.update_book(book.id, filtered_data)
+            if updated_book:
+                self.create_additional_isbns(book, enriched_dict.get('industryIdentifiers', []))
+            return updated_book
+        else:
+            new_book = self.book_service.create_book(filtered_data)
+            if new_book:
+                self.create_additional_isbns(new_book, enriched_dict.get('industryIdentifiers', []))
+            return new_book
 
     def search_external(self, query: str) -> List[Dict[str, Any]]:
         """Поиск книг во внешних источниках."""
@@ -57,21 +66,15 @@ class EnrichmentService:
             # Добавьте другие поля, если они есть в модели
         }
 
-    def _create_book_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
+    def create_additional_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
         """Создание записей ISBN для новой книги."""
+        if not isbn_list:  # Защита от None и пустых списков
+            return
+            
         for isbn_data in isbn_list:
             isbn_value = isbn_data.get('identifier', '')
             isbn_type = isbn_data.get('type', '').replace('ISBN_', 'ISBN-')
             if isbn_value and isbn_type in ['ISBN-10', 'ISBN-13']:
-                BookISBN.objects.create(book=book, isbn=isbn_value, type=isbn_type)
-
-    def _update_book_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
-        """Обновление записей ISBN для существующей книги."""
-        # Удаляем существующие ISBN, чтобы избежать дубликатов
-        book.isbns.all().delete()
-        # Создаем новые записи ISBN
-        for isbn_data in isbn_list:
-            isbn_value = isbn_data.get('identifier', '')
-            isbn_type = isbn_data.get('type', '').replace('ISBN_', 'ISBN-')
-            if isbn_value and isbn_type in ['ISBN-10', 'ISBN-13']:
-                BookISBN.objects.create(book=book, isbn=isbn_value, type=isbn_type)
+                # Проверяем наличие ISBN перед созданием
+                if not BookISBN.objects.filter(book=book, isbn=isbn_value).exists():
+                    BookISBN.objects.create(book=book, isbn=isbn_value, type=isbn_type)

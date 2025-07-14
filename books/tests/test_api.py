@@ -22,6 +22,7 @@ class BookApiTests(APITestCase):
     
     def test_create_book(self):
         """Тест создания книги."""
+        initial_count = Book.objects.count()
         new_book_data = {
             'title': 'New Test Book',
             'author': 'New Test Author',
@@ -29,13 +30,13 @@ class BookApiTests(APITestCase):
             'description': 'New test description',
             'published_date': '2023-05-05'
         }
-        
         response = self.client.post(self.list_url, new_book_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Book.objects.count(), 2)
+        self.assertEqual(Book.objects.count(), initial_count + 1)
         self.assertEqual(response.data['title'], new_book_data['title'])
         self.assertEqual(response.data['author'], new_book_data['author'])
         self.assertEqual(response.data['isbn'], new_book_data['isbn'])
+        self.assertEqual(response.data['description'], new_book_data['description'])
     
     def test_get_book_list(self):
         """Тест получения списка книг."""

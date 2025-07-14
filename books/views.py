@@ -27,7 +27,7 @@ class BookPagination(PageNumberPagination):
 
 class BookViewSet(viewsets.ModelViewSet):
     """ViewSet для CRUD операций с книгами."""
-    queryset = Book.objects.all()
+    queryset = Book.objects.all().order_by('title', 'author', 'published_date')
     pagination_class = BookPagination
     service = BookService()
 
@@ -40,28 +40,43 @@ class BookViewSet(viewsets.ModelViewSet):
         return BookSerializer
 
     def get_queryset(self):
-        queryset = self.service.get_all_books()
-
+        """
+        Получает базовый QuerySet для книг в зависимости от действия.
+        Для списка возвращает все книги, для поиска по ISBN - фильтрует по ISBN.
+        """
+        # Определяем базовое упорядочивание, которое будет применяться ко всем queryset
+        ordering = ('title', 'author', 'published_date')
+        
+        action = getattr(self, 'action', None)
+        if action == 'search_by_isbn':
+            isbn = self.request.query_params.get('isbn', '')
+            if isbn:
+                book = self.service.get_book_by_isbn(isbn)
+                if book:
+                    return Book.objects.filter(id=book.id).order_by(*ordering)
+                return Book.objects.none()
+            return Book.objects.none()
+        
         # Поиск по названию, автору или ISBN
         search = self.request.query_params.get('search', None)
         if search:
-            queryset = queryset.filter(
+            return Book.objects.filter(
                 Q(title__icontains=search) |
                 Q(author__icontains=search) |
                 Q(isbn__icontains=search)
-            )
+            ).order_by(*ordering)
 
         # Фильтрация по автору
         author = self.request.query_params.get('author', None)
         if author:
-            queryset = queryset.filter(author__icontains=author)
+            return Book.objects.filter(author__icontains=author).order_by(*ordering)
 
         # Фильтрация по году публикации
         year = self.request.query_params.get('year', None)
-        if year:
-            queryset = queryset.filter(published_date__year=year)
+        if year and year.isdigit():
+            return Book.objects.filter(published_date__year=year).order_by(*ordering)
 
-        return queryset.order_by('-id')
+        return super().get_queryset()
 
     @extend_schema(
         parameters=[
@@ -143,8 +158,12 @@ class BookViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class EnrichmentViewSet(viewsets.ViewSet):
-    """ViewSet для обогащения данных книг и поиска во внешних источниках."""
-    service = EnrichmentService()
+    """ViewSet для обогащения данных о книгах из внешних источников."""
+    
+    service = EnrichmentService(BookService())
+    
+    def get_permissions(self):
+        pass
 
     @extend_schema(
         parameters=[

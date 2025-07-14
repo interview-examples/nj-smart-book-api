@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict
 from books.models import Book
 from books.repositories.book_repository import BookRepository
+from datetime import datetime
 
 class BookService:
     """Сервис для бизнес-логики работы с книгами."""
@@ -16,12 +17,28 @@ class BookService:
         """Получение списка всех книг."""
         return self.repository.get_all()
 
-    def create_book(self, data: Dict) -> Book:
-        """Создание новой книги."""
+    def create_book(self, data: dict) -> Book:
+        """
+        Создает новую книгу на основе предоставленных данных.
+        Args:
+            data: Данные для создания книги.
+        Returns:
+            Book: Созданный объект книги.
+        """
+        data.pop('auto_fill', None)  # Удаляем неподдерживаемое поле
         return self.repository.create(**data)
 
     def update_book(self, book_id: int, data: Dict) -> Optional[Book]:
-        """Обновление данных книги."""
+        """
+        Обновляет существующую книгу на основе предоставленных данных.
+        Args:
+            book_id: ID книги для обновления.
+            data: Данные для обновления книги.
+        Returns:
+            Optional[Book]: Обновленный объект книги или None, если книга не найдена.
+        """
+        if 'published_date' not in data or data['published_date'] is None:
+            data['published_date'] = datetime.now().date()
         return self.repository.update(book_id, **data)
 
     def delete_book(self, book_id: int) -> bool:

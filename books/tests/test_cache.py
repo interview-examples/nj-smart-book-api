@@ -95,36 +95,52 @@ class ExternalAPIsCacheTests(unittest.TestCase):
 
 class EnrichmentServiceCacheTests(unittest.TestCase):
     """Тесты для проверки кэширования BookEnrichmentService."""
+
     def setUp(self):
-        cache.clear()
-        # Создаем сервис до патчинга
         self.enrichment_service = BookEnrichmentService()
-        # Патчим методы экземпляров
-        self.google_patcher = mock.patch.object(self.enrichment_service.google_books, 'get_book_data')
-        self.ol_patcher = mock.patch.object(self.enrichment_service.open_library, 'get_book_data')
-        self.nyt_patcher = mock.patch.object(self.enrichment_service.ny_times, 'get_book_review')
-        self.mock_google_get_book_data = self.google_patcher.start()
-        self.mock_ol_get_book_data = self.ol_patcher.start()
+        cache.clear()
+
+        # Патчим метод search_books в GoogleBooksService
+        self.google_patcher = mock.patch.object(
+            self.enrichment_service.google_books,
+            'search_books',
+            autospec=True
+        )
+        self.mock_google_search_books = self.google_patcher.start()
+        self.mock_google_search_books.return_value = [
+            BookEnrichmentData(
+                isbn="9781234567890",
+                title="Mocked Google Book",
+                author="Test Google Author",
+                published_date="2022-05-15",
+                source="Google Books"
+            )
+        ]
+
+        # Патчим метод search_books в OpenLibraryService
+        self.ol_patcher = mock.patch.object(
+            self.enrichment_service.open_library,
+            'search_books',
+            autospec=True
+        )
+        self.mock_ol_search_books = self.ol_patcher.start()
+        self.mock_ol_search_books.return_value = [
+            BookEnrichmentData(
+                isbn="9781234567890",
+                title="Mocked Open Library Book",
+                author="Test OL Author",
+                published_date="2022-06-01",
+                source="Open Library"
+            )
+        ]
+
+        # Патчим метод get_book_review в NYTimesService
+        self.nyt_patcher = mock.patch.object(
+            self.enrichment_service.ny_times,
+            'get_book_review',
+            autospec=True
+        )
         self.mock_nyt_get_book_review = self.nyt_patcher.start()
-
-        google_data = BookEnrichmentData(
-            isbn="9781234567890",
-            title="Mocked Google Book",
-            author="Test Google Author",
-            published_date="2022-06-01",
-            source="Google Books"
-        )
-        self.mock_google_get_book_data.return_value = google_data
-
-        ol_data = BookEnrichmentData(
-            isbn="9781234567890",
-            title="Mocked Open Library Book",
-            author="Test OL Author",
-            published_date="2022-06-01",
-            source="Open Library"
-        )
-        self.mock_ol_get_book_data.return_value = ol_data
-
         self.mock_nyt_get_book_review.return_value = "This is a mocked NY Times review."
 
     def tearDown(self):
@@ -137,18 +153,18 @@ class EnrichmentServiceCacheTests(unittest.TestCase):
         """Тест кэширования для сервиса обогащения данных."""
         TEST_ISBN = "9781234567890"
         result1 = self.enrichment_service.enrich_book_data(TEST_ISBN)
-        self.assertEqual(self.mock_google_get_book_data.call_count, 1)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 0)
+        self.assertEqual(self.mock_google_search_books.call_count, 1)
+        self.assertEqual(self.mock_ol_search_books.call_count, 0)  # Google вернул данные, поэтому OpenLibrary не вызывается
         self.assertEqual(self.mock_nyt_get_book_review.call_count, 1)
 
         # Сбрасываем все счетчики
-        self.mock_google_get_book_data.reset_mock()
-        self.mock_ol_get_book_data.reset_mock()
+        self.mock_google_search_books.reset_mock()
+        self.mock_ol_search_books.reset_mock()
         self.mock_nyt_get_book_review.reset_mock()
 
         result2 = self.enrichment_service.enrich_book_data(TEST_ISBN)
-        self.assertEqual(self.mock_google_get_book_data.call_count, 0)
-        self.assertEqual(self.mock_ol_get_book_data.call_count, 0)
+        self.assertEqual(self.mock_google_search_books.call_count, 0)
+        self.assertEqual(self.mock_ol_search_books.call_count, 0)
         self.assertEqual(self.mock_nyt_get_book_review.call_count, 0)
 
         # Проверяем, что результаты идентичны
