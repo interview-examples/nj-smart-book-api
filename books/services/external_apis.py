@@ -26,6 +26,7 @@ class BookEnrichmentData:
     reviews_count: Optional[int] = None
     ny_times_review: Optional[str] = None
     source: Optional[str] = None
+    industryIdentifiers: Optional[List[Dict[str, str]]] = None
 
 def cached_api_call(cache_timeout: int = 3600):
     """Декоратор для кэширования API-вызовов."""
@@ -87,11 +88,77 @@ class ReviewService(BaseAPIService):
 
 class GoogleBooksService(BookDataService):
     """Сервис для работы с Google Books API."""
-    BASE_URL = "https://www.googleapis.com/books/v1/volumes"
+    BASE_URL = "https://www.googleapis.com/books/v1"
+    CACHE_TIMEOUT = getattr(settings, 'GOOGLE_BOOKS_CACHE_TIMEOUT', 14400)
 
     def __init__(self):
         self.api_key = getattr(settings, 'GOOGLE_BOOKS_API_KEY', None)
 
+    @cached_api_call(cache_timeout=CACHE_TIMEOUT)
+    def get_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
+        url = f"{self.BASE_URL}/volumes"
+        params = {'q': f"isbn:{isbn}", 'maxResults': 1}
+        data = self._make_request(url, params, "Google Books API error")
+        if not data or not data.get('items'):
+            return None
+        item = data['items'][0].get('volumeInfo', {})
+        return BookEnrichmentData(
+            isbn=isbn,
+            title=item.get('title', ''),
+            author=', '.join(item.get('authors', [])),
+            description=item.get('description', ''),
+            published_date=self._parse_date(item.get('publishedDate', '')),
+            page_count=item.get('pageCount', 0),
+            language=item.get('language', ''),
+            categories=item.get('categories', []),
+            thumbnail=item.get('imageLinks', {}).get('thumbnail', ''),
+            preview_link=item.get('previewLink', ''),
+            rating=item.get('averageRating', 0.0),
+            reviews_count=item.get('ratingsCount', 0),
+            source='Google Books',
+            industryIdentifiers=item.get('industryIdentifiers', [])
+        )
+
+    @cached_api_call(cache_timeout=CACHE_TIMEOUT)
+    def search_books(self, query: str) -> List[BookEnrichmentData]:
+        """Поиск книг по запросу."""
+        url = f"{self.BASE_URL}/volumes"
+        params = {'q': query, 'maxResults': getattr(settings, 'GOOGLE_BOOKS_MAX_RESULTS', 10)}
+        data = self._make_request(url, params, "Google Books API search error")
+        if not data or not data.get('items'):
+            return []
+        results = []
+        for item in data['items']:
+            volume_info = item.get('volumeInfo', {})
+            isbn_list = [identifier.get('identifier', '') for identifier in volume_info.get('industryIdentifiers', []) if identifier.get('type') == 'ISBN_13']
+            isbn = isbn_list[0] if isbn_list else ''
+            results.append(BookEnrichmentData(
+                isbn=isbn,
+                title=volume_info.get('title', ''),
+                author=', '.join(volume_info.get('authors', [])),
+                description=volume_info.get('description', ''),
+                published_date=self._parse_date(volume_info.get('publishedDate', '')),
+                page_count=volume_info.get('pageCount', 0),
+                language=volume_info.get('language', ''),
+                categories=volume_info.get('categories', []),
+                thumbnail=volume_info.get('imageLinks', {}).get('thumbnail', ''),
+                preview_link=volume_info.get('previewLink', ''),
+                rating=volume_info.get('averageRating', 0.0),
+                reviews_count=volume_info.get('ratingsCount', 0),
+                source='Google Books',
+                industryIdentifiers=volume_info.get('industryIdentifiers', [])
+            ))
+        return results
+
+    def _parse_date(self, date_str: str) -> Optional[str]:
+        if not date_str:
+            return None
+        try:
+            return date_str.split('-')[0] if '-' in date_str else date_str
+        except Exception as e:
+            logger.error(f"Date parsing error: {str(e)}")
+            return None
+
     def _make_request(self, url: str, params: Dict[str, Any], error_msg: str, default_return: Any = None) -> Any:
         try:
             response = requests.get(url, params=params, timeout=10)
@@ -100,69 +167,88 @@ class GoogleBooksService(BookDataService):
         except requests.RequestException as e:
             logger.error(f"{error_msg}: {str(e)}")
             return default_return
-
-    @cached_api_call(cache_timeout=7200)
-    def get_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
-        try:
-            params = {'q': f'isbn:{isbn}', 'key': self.api_key}
-            data = self._make_request(self.BASE_URL, params, "Google Books API error")
-            if not data or data.get('totalItems', 0) == 0:
-                return None
-            book_info = data['items'][0]['volumeInfo']
-            return BookEnrichmentData(
-                isbn=isbn,
-                title=book_info.get('title'),
-                author=', '.join(book_info.get('authors', [])),
-                description=book_info.get('description'),
-                published_date=book_info.get('publishedDate'),
-                page_count=book_info.get('pageCount'),
-                language=book_info.get('language'),
-                categories=book_info.get('categories'),
-                thumbnail=book_info.get('imageLinks', {}).get('thumbnail'),
-                preview_link=book_info.get('previewLink'),
-                rating=book_info.get('averageRating'),
-                reviews_count=book_info.get('ratingsCount'),
-                source='Google Books'
-            )
-        except Exception as e:
-            logger.error(f"Error processing Google Books data: {str(e)}")
-            return None
-
-    @cached_api_call(cache_timeout=3600)
-    def search_books(self, query: str, limit: int = 10) -> List[BookEnrichmentData]:
-        try:
-            params = {'q': query, 'maxResults': min(limit, 40), 'key': self.api_key}
-            response = requests.get(self.BASE_URL, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            results = []
-            for item in data.get('items', []):
-                book_info = item['volumeInfo']
-                isbn = next((id['identifier'] for id in book_info.get('industryIdentifiers', []) if id['type'] in ['ISBN_13', 'ISBN_10']), None)
-                if isbn:
-                    results.append(BookEnrichmentData(
-                        isbn=isbn,
-                        title=book_info.get('title'),
-                        author=', '.join(book_info.get('authors', [])),
-                        description=book_info.get('description'),
-                        published_date=book_info.get('publishedDate'),
-                        page_count=book_info.get('pageCount'),
-                        language=book_info.get('language'),
-                        categories=book_info.get('categories'),
-                        thumbnail=book_info.get('imageLinks', {}).get('thumbnail'),
-                        preview_link=book_info.get('previewLink'),
-                        rating=book_info.get('averageRating'),
-                        reviews_count=book_info.get('ratingsCount'),
-                        source='Google Books'
-                    ))
-            return results
-        except requests.RequestException as e:
-            logger.error(f"Google Books search error: {str(e)}")
-            return []
 
 class OpenLibraryService(BookDataService):
     """Сервис для работы с Open Library API."""
     BASE_URL = "https://openlibrary.org"
+    CACHE_TIMEOUT = getattr(settings, 'OPEN_LIBRARY_CACHE_TIMEOUT', 14400)
+
+    @cached_api_call(cache_timeout=CACHE_TIMEOUT)
+    def get_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
+        url = f"{self.BASE_URL}/isbn/{isbn}.json"
+        data = self._make_request(url, {}, "Open Library API error")
+        if not data:
+            return None
+        author_key = data.get('authors', [{}])[0].get('key') if data.get('authors') else None
+        author_name = ''
+        if author_key:
+            author_data = self._make_request(f"{self.BASE_URL}{author_key}.json", {}, "Open Library Author API error")
+            if author_data:
+                author_name = author_data.get('name', '')
+        industry_identifiers = [{'type': 'ISBN_13', 'identifier': isbn}] if len(isbn) == 13 else [{'type': 'ISBN_10', 'identifier': isbn}] if len(isbn) == 10 else []
+        return BookEnrichmentData(
+            isbn=isbn,
+            title=data.get('title', ''),
+            author=author_name,
+            description=data.get('description', {}).get('value', '') if isinstance(data.get('description'), dict) else data.get('description', ''),
+            published_date=self._parse_date(data.get('publish_date', '')),
+            page_count=data.get('number_of_pages', 0),
+            language=data.get('languages', [{}])[0].get('key', '').split('/')[-1] if data.get('languages') else '',
+            categories=[subject.get('key', '').split('/')[-1] for subject in data.get('subjects', [])],
+            thumbnail=f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg" if data.get('covers') else '',
+            preview_link=f"https://openlibrary.org/isbn/{isbn}",
+            rating=0.0,
+            reviews_count=0,
+            source='Open Library',
+            industryIdentifiers=industry_identifiers
+        )
+
+    @cached_api_call(cache_timeout=CACHE_TIMEOUT)
+    def search_books(self, query: str) -> List[BookEnrichmentData]:
+        """Поиск книг по запросу."""
+        url = f"{self.BASE_URL}/search.json"
+        params = {'q': query, 'limit': getattr(settings, 'OPEN_LIBRARY_MAX_RESULTS', 10)}
+        data = self._make_request(url, params, "Open Library API search error")
+        if not data or not data.get('docs'):
+            return []
+        results = []
+        for doc in data['docs']:
+            isbn_list = doc.get('isbn', [])
+            isbn = isbn_list[0] if isbn_list else ''
+            industry_identifiers = []
+            for i, isbn_val in enumerate(isbn_list):
+                if len(isbn_val) == 13:
+                    industry_identifiers.append({'type': 'ISBN_13', 'identifier': isbn_val})
+                elif len(isbn_val) == 10:
+                    industry_identifiers.append({'type': 'ISBN_10', 'identifier': isbn_val})
+                if i >= 1:  
+                    break
+            results.append(BookEnrichmentData(
+                isbn=isbn,
+                title=doc.get('title', ''),
+                author=', '.join(doc.get('author_name', [])),
+                description='',
+                published_date=str(doc.get('first_publish_year', '')) if doc.get('first_publish_year') else '',
+                page_count=doc.get('number_of_pages_median', 0),
+                language=doc.get('language', [''])[0] if doc.get('language') else '',
+                categories=doc.get('subject', []),
+                thumbnail=f"https://covers.openlibrary.org/b/id/{doc.get('cover_i', '')}-M.jpg" if doc.get('cover_i') else '',
+                preview_link=f"https://openlibrary.org{doc.get('key', '')}" if doc.get('key') else '',
+                rating=0.0,
+                reviews_count=0,
+                source='Open Library',
+                industryIdentifiers=industry_identifiers
+            ))
+        return results
+
+    def _parse_date(self, date_str: str) -> Optional[str]:
+        if not date_str:
+            return None
+        try:
+            return date_str.split('-')[0] if '-' in date_str else date_str
+        except Exception as e:
+            logger.error(f"Date parsing error: {str(e)}")
+            return None
 
     def _make_request(self, url: str, params: Dict[str, Any], error_msg: str, default_return: Any = None) -> Any:
         try:
@@ -172,55 +258,6 @@ class OpenLibraryService(BookDataService):
         except requests.RequestException as e:
             logger.error(f"{error_msg}: {str(e)}")
             return default_return
-
-    @cached_api_call(cache_timeout=7200)
-    def get_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
-        try:
-            url = f"{self.BASE_URL}/api/books"
-            params = {'bibkeys': f'ISBN:{isbn}', 'format': 'json', 'jscmd': 'data'}
-            data = self._make_request(url, params, "Open Library API error")
-            if data is None or f'ISBN:{isbn}' not in data:
-                return None
-            book_info = data[f'ISBN:{isbn}']
-            return BookEnrichmentData(
-                isbn=isbn,
-                title=book_info.get('title'),
-                author=', '.join([author['name'] for author in book_info.get('authors', [])]),
-                description=book_info.get('description'),
-                published_date=book_info.get('publish_date'),
-                page_count=book_info.get('number_of_pages'),
-                categories=book_info.get('subjects', [])[:5],
-                thumbnail=book_info.get('cover', {}).get('medium'),
-                preview_link=book_info.get('url'),
-                source='Open Library'
-            )
-        except requests.RequestException as e:
-            logger.error(f"Open Library API error: {str(e)}")
-            return None
-
-    @cached_api_call(cache_timeout=3600)
-    def search_books(self, query: str, limit: int = 10) -> List[BookEnrichmentData]:
-        try:
-            params = {'q': query, 'limit': min(limit, 50), 'format': 'json'}
-            response = requests.get(f"{self.BASE_URL}/search.json", params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            results = []
-            for doc in data.get('docs', []):
-                isbn = next((isbn for isbn in doc.get('isbn', []) if len(isbn) in [10, 13]), None)
-                if isbn:
-                    results.append(BookEnrichmentData(
-                        isbn=isbn,
-                        title=doc.get('title'),
-                        author=', '.join(doc.get('author_name', [])),
-                        published_date=str(doc.get('first_publish_year', '')),
-                        categories=doc.get('subject', [])[:5],
-                        source='Open Library'
-                    ))
-            return results
-        except requests.RequestException as e:
-            logger.error(f"Open Library search error: {str(e)}")
-            return []
 
 class NYTimesService(ReviewService):
     """Сервис для работы с NY Times Books API."""
@@ -273,11 +310,11 @@ class BookEnrichmentService:
 
     def search_books(self, query: str, limit: int = 10) -> List[BookEnrichmentData]:
         results = []
-        google_results = self.google_books.search_books(query, limit)
+        google_results = self.google_books.search_books(query)
         results.extend(google_results)
         if len(results) < limit:
             remaining = limit - len(results)
-            open_library_results = self.open_library.search_books(query, remaining)
+            open_library_results = self.open_library.search_books(query)
             existing_isbns = {book.isbn for book in results}
             for book in open_library_results:
                 if book.isbn not in existing_isbns:

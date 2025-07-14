@@ -28,3 +28,15 @@ class Book(models.Model):
         """Переопределяем метод save для запуска валидации перед сохранением."""
         self.full_clean()  # Запускаем валидаторы
         super().save(*args, **kwargs)
+
+class BookISBN(models.Model):
+    book = models.ForeignKey('Book', on_delete=models.CASCADE, related_name='isbns')
+    isbn = models.CharField(max_length=17, unique=True)
+    type = models.CharField(max_length=10, choices=[('ISBN_10', 'ISBN-10'), ('ISBN_13', 'ISBN-13')], default='ISBN_13')
+
+    class Meta:
+        unique_together = ('book', 'isbn')
+        indexes = [models.Index(fields=['isbn'])]
+
+    def __str__(self):
+        return f"{self.isbn} ({self.type})"
