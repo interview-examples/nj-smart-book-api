@@ -2,13 +2,23 @@ from typing import Optional, Dict, Any, List
 from books.services.external_apis import BookEnrichmentService
 from books.models import Book, BookISBN
 from books.services.book_service import BookService
+from books.repositories.book_repository import BookRepository
 
 class EnrichmentService:
     """Сервис для обогащения данных о книгах из внешних источников."""
 
-    def __init__(self, book_service: BookService):
+    def __init__(self, book_service: BookService, external_service=None, book_repository=None):
+        """
+        Инициализация сервиса с внедрением зависимостей.
+        
+        Args:
+            book_service: Сервис для работы с книгами
+            external_service: Сервис для обогащения данных книг. Если None, создается экземпляр по умолчанию.
+            book_repository: Репозиторий для работы с книгами. Если None, создается экземпляр по умолчанию.
+        """
         self.book_service = book_service
-        self.external_service = BookEnrichmentService()
+        self.external_service = external_service or BookEnrichmentService()
+        self.repository = book_repository or BookRepository()
 
     def enrich_book_by_isbn(self, isbn: str) -> Optional[Book]:
         """
@@ -34,7 +44,7 @@ class EnrichmentService:
         if book:
             updated_book = self.book_service.update_book(book.id, filtered_data)
             if updated_book:
-                self.create_additional_isbns(book, enriched_dict.get('industryIdentifiers', []))
+                self.create_additional_isbns(updated_book, enriched_dict.get('industryIdentifiers', []))
             return updated_book
         else:
             new_book = self.book_service.create_book(filtered_data)
@@ -67,14 +77,19 @@ class EnrichmentService:
         }
 
     def create_additional_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
-        """Создание записей ISBN для новой книги."""
+        """
+        Создание записей ISBN для книги.
+        
+        Args:
+            book: Объект книги
+            isbn_list: Список словарей с данными ISBN
+        """
         if not isbn_list:  # Защита от None и пустых списков
             return
             
         for isbn_data in isbn_list:
             isbn_value = isbn_data.get('identifier', '')
             isbn_type = isbn_data.get('type', '').replace('ISBN_', 'ISBN-')
+            
             if isbn_value and isbn_type in ['ISBN-10', 'ISBN-13']:
-                # Проверяем наличие ISBN перед созданием
-                if not BookISBN.objects.filter(book=book, isbn=isbn_value).exists():
-                    BookISBN.objects.create(book=book, isbn=isbn_value, type=isbn_type)
+                self.repository.create_isbn(book, isbn_value, isbn_type)

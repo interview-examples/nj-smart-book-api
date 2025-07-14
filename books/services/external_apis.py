@@ -396,10 +396,18 @@ class NYTimesService(ReviewService):
 
 class BookEnrichmentService:
     """Главный сервис для обогащения данных о книгах."""
-    def __init__(self):
-        self.google_books = GoogleBooksService()
-        self.open_library = OpenLibraryService()
-        self.ny_times = NYTimesService()
+    def __init__(self, google_books_service=None, open_library_service=None, ny_times_service=None):
+        """
+        Инициализация сервиса с внедрением зависимостей.
+        
+        Args:
+            google_books_service: Сервис Google Books API. Если None, создается экземпляр по умолчанию.
+            open_library_service: Сервис Open Library API. Если None, создается экземпляр по умолчанию.
+            ny_times_service: Сервис NY Times API. Если None, создается экземпляр по умолчанию.
+        """
+        self.google_books = google_books_service or GoogleBooksService()
+        self.open_library = open_library_service or OpenLibraryService()
+        self.ny_times = ny_times_service or NYTimesService()
 
     @cached_api_call(cache_timeout=14400)
     def enrich_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
