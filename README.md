@@ -31,8 +31,8 @@ docker-compose exec web python manage.py test
 * GET /books//: Retrieve details of a specific book.
 * PUT /books//: Update a specific book.
 * DELETE /books//: Delete a specific book.
-* GET /api/v1/schema/: Retrieve the OpenAPI schema.
-* GET /api/v1/docs/: Access the Swagger documentation for the API.
+* GET /api/v1/schema/: Retrieve the OpenAPI schema *(download .yml)*
+* GET /api/v1/docs/: Access the Swagger interactive documentation for the API.
 
 Each book response includes enriched data such as cover URL, page count, and genres fetched from Open Library.
 

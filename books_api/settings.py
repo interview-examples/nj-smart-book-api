@@ -16,8 +16,14 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Выбираем, какой .env загружать (по умолчанию — dev)
-ENV_FILE = os.getenv("ENV_FILE", ".env.dev")
+# Определяем, используется ли Docker (наличие переменной DATABASE_URL)
+DOCKER_ENV = os.environ.get('DATABASE_URL') is not None
+
+# Выбираем, какой .env загружать
+if DOCKER_ENV:
+    ENV_FILE = ".env"  # Для Docker
+else:
+    ENV_FILE = os.getenv("ENV_FILE", ".env.dev")  # Для локальной разработки
 
 # Загрузка .env из корня проекта
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, ENV_FILE))
@@ -90,12 +96,26 @@ WSGI_APPLICATION = 'books_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if DOCKER_ENV:
+    # Конфигурация для Docker с PostgreSQL
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB'),
+            'USER': os.getenv('POSTGRES_USER'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+            'HOST': 'db',  # Имя сервиса в docker-compose
+            'PORT': '5432',
+        }
     }
-}
+else:
+    # Стандартная конфигурация с SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -138,6 +158,22 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Настройка кэширования
+if DOCKER_ENV and os.getenv('REDIS_URL'):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv('REDIS_URL'),
+            "TIMEOUT": 3600,  # 1 час по умолчанию
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
 
 # TODO: позже подготовить профессиональный логгер:
 # - с разными уровнями для Django и твоего приложения

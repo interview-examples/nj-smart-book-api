@@ -12,4 +12,6 @@ static/
 .env.*
 !.env.example
 .idea/workspace.xml
+
 TechnicalSpecifications.md
+DockerCommands.md
