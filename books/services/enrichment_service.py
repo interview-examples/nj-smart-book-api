@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, List
-from books.services.external_apis import BookEnrichmentService
+from books.services.enrichment.service import BookEnrichmentService
 from books.models import Book, BookISBN
 from books.services.book_service import BookService
 from books.repositories.book_repository import BookRepository

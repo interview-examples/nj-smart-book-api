@@ -69,15 +69,24 @@ def validate_isbn(value):
     else:
         raise ValidationError('ISBN должен содержать 10 или 13 символов.')
 
+class Author(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    
+    def __str__(self) -> str:
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
 class Book(models.Model):
     title = models.CharField(max_length=255)
-    author = models.CharField(max_length=255)
     isbn = models.CharField(max_length=13, unique=True, validators=[validate_isbn])
     description = models.TextField(blank=True, default='')
     published_date = models.DateField()
+    authors = models.ManyToManyField('Author', related_name='books')
 
     def __str__(self) -> str:
-        return f"{self.title} - {self.author}"
+        return f"{self.title} - {', '.join(author.name for author in self.authors.all())}"
     
     def save(self, *args, **kwargs) -> None:
         """Переопределяем метод save для запуска валидации перед сохранением."""
@@ -107,6 +116,9 @@ class BookISBN(models.Model):
         return f"{self.isbn} ({self.type})"
 
     def save(self, *args, **kwargs) -> None:
-        """Переопределяем метод save для запуска валидации перед сохранением."""
+        """Normalize ISBN before validation and saving."""
+        # Remove any non-digit characters before saving (except 'X' for ISBN-10)
+        if self.isbn:
+            self.isbn = re.sub(r'[^0-9X]', '', self.isbn.upper())
         self.full_clean()
         super().save(*args, **kwargs)

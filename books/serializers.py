@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Book
-from .services.external_apis import BookEnrichmentService
+from .services.enrichment.service import BookEnrichmentService
 from typing import Dict, Any
 
 

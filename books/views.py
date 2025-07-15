@@ -27,7 +27,7 @@ class BookPagination(PageNumberPagination):
 
 class BookViewSet(viewsets.ModelViewSet):
     """ViewSet для CRUD операций с книгами."""
-    queryset = Book.objects.all().order_by('title', 'author', 'published_date')
+    queryset = Book.objects.all().order_by('title', 'published_date')
     pagination_class = BookPagination
     service = BookService()
 
@@ -45,7 +45,7 @@ class BookViewSet(viewsets.ModelViewSet):
         Для списка возвращает все книги, для поиска по ISBN - фильтрует по ISBN.
         """
         # Определяем базовое упорядочивание, которое будет применяться ко всем queryset
-        ordering = ('title', 'author', 'published_date')
+        ordering = ('title', 'published_date')
         
         action = getattr(self, 'action', None)
         if action == 'search_by_isbn':
