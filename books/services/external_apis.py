@@ -239,7 +239,7 @@ class OpenLibraryService(BookDataService):
             author_data = self._make_request(f"{self.BASE_URL}{author_key}.json", {}, "Open Library Author API error")
             if author_data:
                 author_name = author_data.get('name', '')
-        industry_identifiers = [{'type': 'ISBN_13', 'identifier': isbn}] if len(isbn) == 13 else [{'type': 'ISBN_10', 'identifier': isbn}] if len(isbn) == 10 else []
+        industry_identifiers = [{'type': 'ISBN-13', 'identifier': isbn}] if len(isbn) == 13 else [{'type': 'ISBN-10', 'identifier': isbn}] if len(isbn) == 10 else []
         return BookEnrichmentData(
             isbn=isbn,
             title=data.get('title', ''),
@@ -335,11 +335,11 @@ class OpenLibraryService(BookDataService):
         industry_identifiers = []
         if 'identifiers' in book_data:
             if 'isbn_13' in book_data['identifiers']:
-                industry_identifiers.extend([{'type': 'ISBN_13', 'identifier': id_} for id_ in book_data['identifiers']['isbn_13']])
+                industry_identifiers.extend([{'type': 'ISBN-13', 'identifier': id_} for id_ in book_data['identifiers']['isbn_13']])
             if 'isbn_10' in book_data['identifiers']:
-                industry_identifiers.extend([{'type': 'ISBN_10', 'identifier': id_} for id_ in book_data['identifiers']['isbn_10']])
+                industry_identifiers.extend([{'type': 'ISBN-10', 'identifier': id_} for id_ in book_data['identifiers']['isbn_10']])
         elif isbn:
-            industry_identifiers.append({'type': 'ISBN_13', 'identifier': isbn})
+            industry_identifiers.append({'type': 'ISBN-13', 'identifier': isbn})
 
         return BookEnrichmentData(
             isbn=isbn,

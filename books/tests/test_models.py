@@ -11,7 +11,7 @@ class BookModelTests(TestCase):
         self.book_data = {
             'title': 'Test Book',
             'author': 'Test Author',
-            'isbn': '9781234567897',
+            'isbn': '9780201896831',
             'description': 'Test description of the book',
             'published_date': '2023-01-01'
         }
@@ -44,7 +44,7 @@ class BookModelTests(TestCase):
 
         # Корректный ISBN-10
         valid_data = self.book_data.copy()
-        valid_data['isbn'] = '1234567890'
+        valid_data['isbn'] = '0201896834'
 
         book = Book(**valid_data)
         try:
@@ -54,7 +54,7 @@ class BookModelTests(TestCase):
 
         # Корректный ISBN-13
         valid_data = self.book_data.copy()
-        valid_data['isbn'] = '9781234567897'
+        valid_data['isbn'] = '9780201896831'
 
         book = Book(**valid_data)
         try:
@@ -67,7 +67,7 @@ class BookModelTests(TestCase):
         minimal_data = {
             'title': 'Minimal Book',
             'author': 'Minimal Author',
-            'isbn': '9781234567890',  # ISBN обязателен согласно валидатору
+            'isbn': '9780132350884',  # ISBN обязателен согласно валидатору
             'published_date': '2023-01-01'  # Добавляем обязательное поле
         }
 
@@ -118,14 +118,14 @@ class BookISBNModelTest(TestCase):
         self.book = Book.objects.create(
             title="Test Book",
             author="Test Author",
-            isbn="1234567890123",  # Основной ISBN (для обратной совместимости)
+            isbn="9780201896831",  # Основной ISBN (для обратной совместимости)
             published_date="2023-01-01"
         )
 
     def test_create_multiple_isbns(self):
         """Тестирование создания нескольких ISBN для одной книги."""
-        isbn_13 = BookISBN.objects.create(book=self.book, isbn="1234567890123", type="ISBN-13")
-        isbn_10 = BookISBN.objects.create(book=self.book, isbn="1234567890", type="ISBN-10")
+        isbn_13 = BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
+        isbn_10 = BookISBN.objects.create(book=self.book, isbn="0201896834", type="ISBN-10")
 
         self.assertEqual(self.book.isbns.count(), 2)
         self.assertEqual(isbn_13.type, "ISBN-13")
@@ -133,11 +133,11 @@ class BookISBNModelTest(TestCase):
 
     def test_unique_isbn(self):
         """Тестирование уникальности ISBN."""
-        BookISBN.objects.create(book=self.book, isbn="1234567890123", type="ISBN-13")
+        BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
         with self.assertRaises(Exception):  # Должно вызвать IntegrityError
-            BookISBN.objects.create(book=self.book, isbn="1234567890123", type="ISBN-13")
+            BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
 
     def test_str_method(self):
         """Тестирование метода __str__ для BookISBN."""
-        isbn = BookISBN.objects.create(book=self.book, isbn="1234567890123", type="ISBN-13")
-        self.assertEqual(str(isbn), "1234567890123 (ISBN-13)")
+        isbn = BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
+        self.assertEqual(str(isbn), "9780201896831 (ISBN-13)")

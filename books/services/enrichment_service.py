@@ -89,7 +89,16 @@ class EnrichmentService:
             
         for isbn_data in isbn_list:
             isbn_value = isbn_data.get('identifier', '')
-            isbn_type = isbn_data.get('type', '').replace('ISBN_', 'ISBN-')
+            # Обеспечиваем единообразие формата типа ISBN, преобразуя все в формат с дефисом
+            isbn_type_raw = isbn_data.get('type', '')
             
-            if isbn_value and isbn_type in ['ISBN-10', 'ISBN-13']:
+            # Принимаем как формат с подчеркиванием (ISBN_10), так и с дефисом (ISBN-10)
+            if isbn_type_raw in ['ISBN_10', 'ISBN-10']:
+                isbn_type = 'ISBN-10'
+            elif isbn_type_raw in ['ISBN_13', 'ISBN-13']:
+                isbn_type = 'ISBN-13'
+            else:
+                continue  # Пропускаем неизвестные типы
+            
+            if isbn_value:
                 self.repository.create_isbn(book, isbn_value, isbn_type)

@@ -15,7 +15,7 @@ class BookSerializerTests(TestCase):
         self.book_data = {
             'title': 'Test Book',
             'author': 'Test Author',
-            'isbn': '9781234567897',
+            'isbn': '9780201896831',
             'description': 'Test description of the book',
             'published_date': '2023-01-01'
         }
@@ -49,7 +49,7 @@ class EnrichedBookSerializerTests(TestCase):
         self.book_data = {
             'title': 'Test Book',
             'author': 'Test Author',
-            'isbn': '9781234567897',
+            'isbn': '9780201896831',
             'description': 'Test description of the book',
             'published_date': '2023-01-01'
         }
@@ -80,7 +80,7 @@ class BookCreateUpdateSerializerTests(TestCase):
         self.valid_data = {
             'title': 'New Test Book',
             'author': 'New Test Author',
-            'isbn': '9781234567897',
+            'isbn': '9780132350884',
             'description': 'New test description',
             'published_date': '2023-01-01'
         }
@@ -88,7 +88,7 @@ class BookCreateUpdateSerializerTests(TestCase):
         self.invalid_isbn_data = {
             'title': 'Invalid ISBN Book',
             'author': 'Test Author',
-            'isbn': '123',  # Некорректный ISBN
+            'isbn': '978-0201-6831',  # Некорректный ISBN
             'description': 'Book with invalid ISBN',
             'published_date': '2023-01-01'
         }
@@ -96,7 +96,7 @@ class BookCreateUpdateSerializerTests(TestCase):
         self.invalid_date_data = {
             'title': 'Invalid Date Book',
             'author': 'Test Author',
-            'isbn': '9781234567897',
+            'isbn': '9780132350884',
             'description': 'Book with invalid date',
             'published_date': 'not-a-date'  # Некорректная дата
         }
@@ -121,7 +121,7 @@ class BookCreateUpdateSerializerTests(TestCase):
     def test_create_with_partial_data(self):
         """Проверка создания с неполными данными."""
         partial_data = {
-            'isbn': '9781234567890',
+            'isbn': '9780596007126',
             'title': 'Partial Book',
             'author': 'Partial Author',
             'published_date': '2023-01-01'
@@ -168,7 +168,7 @@ class BookCreateUpdateSerializerTests(TestCase):
         """Проверка функциональности автозаполнения."""
         data_with_auto_fill = {
             'title': 'Auto Fill Book',
-            'isbn': '9780141439518',  # ISBN для "Pride and Prejudice"
+            'isbn': '9781617294136',  # ISBN для Spring in Action
             'auto_fill': True
         }
         
