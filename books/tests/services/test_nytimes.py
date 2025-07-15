@@ -219,11 +219,13 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
         """Test handling of HTTP error responses."""
         # Create a mock response that raises an HTTPError
         mock_response = mock.MagicMock()
-        http_error = requests.HTTPError("404 Client Error")
-        mock_response.raise_for_status.side_effect = http_error
         mock_response.status_code = 404
-        # Ensure the error has a response attribute
-        http_error.response = mock_response
+        
+        # Create HTTP error with response attribute
+        http_error = requests.HTTPError("404 Client Error")
+        http_error.response = mock_response  # Explicitly set response attribute
+        
+        mock_response.raise_for_status.side_effect = http_error
 
         # Mock requests.get to return our error response
         with mock.patch('requests.get', return_value=mock_response):
@@ -239,9 +241,8 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
         """Test handling of JSON decoding errors."""
         # Create a mock response with invalid JSON
         mock_response = mock.MagicMock()
-        mock_response.json.side_effect = ValueError("Invalid JSON")
-        mock_response.status_code = 200
-        mock_response.raise_for_status.return_value = None
+        mock_response.raise_for_status.return_value = None  # No HTTP error
+        mock_response.json.side_effect = ValueError("Invalid JSON")  # But JSON parsing fails
 
         # Mock requests.get to return our mock response
         with mock.patch('requests.get', return_value=mock_response):
@@ -251,3 +252,4 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
 
             # Assert exception details
             self.assertIn("Invalid JSON", str(context.exception))
+            self.assertEqual(context.exception.source, "NYTimesAPI")

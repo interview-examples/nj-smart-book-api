@@ -7,29 +7,29 @@ logger = logging.getLogger(__name__)
 
 def validate_isbn(value):
     """
-    Валидатор для ISBN.
+    ISBN validator.
     
-    Проверяет формат ISBN и вычисляет контрольную сумму для ISBN-10 и ISBN-13.
-    Формат ISBN-10: XXXXXXXXXX (где X - цифра или 'X' для последней позиции)
-    Формат ISBN-13: XXXXXXXXXXXXX (где X - цифра)
+    Validates ISBN format and calculates checksum for ISBN-10 and ISBN-13.
+    ISBN-10 format: XXXXXXXXXX (where X is a digit or 'X' for the last position)
+    ISBN-13 format: XXXXXXXXXXXXX (where X is a digit)
     
     Args:
-        value: Строка с ISBN для проверки
+        value: ISBN string to validate
         
     Raises:
-        ValidationError: Если ISBN не соответствует формату или контрольная сумма неверна
+        ValidationError: If ISBN format is invalid or checksum is incorrect
     """
-    # Удаляем все не цифровые символы и символы 'X'
+    # Remove all non-digit characters and 'X'
     clean_isbn = re.sub(r'[^0-9X]', '', value.upper())
     
-    # Проверка на ISBN-10 или ISBN-13
+    # Check for ISBN-10 or ISBN-13
     if len(clean_isbn) == 10:
-        # Проверка формата ISBN-10
+        # Validate ISBN-10 format
         if not re.match(r'^[0-9]{9}[0-9X]$', clean_isbn):
-            raise ValidationError('ISBN-10 должен содержать 9 цифр и цифру или X в качестве контрольного символа.')
+            raise ValidationError('ISBN-10 must contain 9 digits and a digit or X as the check character.')
         
-        # Проверка контрольной суммы ISBN-10
-        # Алгоритм: (sum(d[i] * (10 - i) for i in range(9)) + d[9]) % 11 == 0, где d[9] = 10 если X
+        # Validate ISBN-10 checksum
+        # Algorithm: (sum(d[i] * (10 - i) for i in range(9)) + d[9]) % 11 == 0, where d[9] = 10 if X
         try:
             sum_val = 0
             for i in range(9):
@@ -41,35 +41,38 @@ def validate_isbn(value):
                 sum_val += int(clean_isbn[9])
                 
             if sum_val % 11 != 0:
-                raise ValidationError(f'Неверная контрольная сумма ISBN-10: {value}')
+                raise ValidationError(f'Invalid ISBN-10 checksum: {value}')
         except (ValueError, IndexError) as e:
-            logger.error(f"Ошибка проверки ISBN-10: {str(e)}")
-            raise ValidationError(f'Ошибка при проверке ISBN-10: {value}')
+            logger.error(f"ISBN-10 validation error: {str(e)}")
+            raise ValidationError(f'Error validating ISBN-10: {value}')
             
     elif len(clean_isbn) == 13:
-        # Проверка формата ISBN-13
+        # Validate ISBN-13 format
         if not re.match(r'^[0-9]{13}$', clean_isbn):
-            raise ValidationError('ISBN-13 должен содержать 13 цифр.')
+            raise ValidationError('ISBN-13 must contain 13 digits.')
         
-        # Проверка контрольной суммы ISBN-13
-        # Алгоритм: sum(d[i] * (1 if i % 2 == 0 else 3) for i in range(12)) + d[12] должно делиться на 10
+        # Validate ISBN-13 checksum
+        # Algorithm: sum(d[i] * (1 if i % 2 == 0 else 3) for i in range(12)) + d[12] must be divisible by 10
         try:
             sum_val = 0
             for i in range(12):
                 weight = 1 if i % 2 == 0 else 3
                 sum_val += int(clean_isbn[i]) * weight
                 
-            check_digit = (10 - (sum_val % 10)) % 10  # Последнее % 10 нужно для случая, когда sum_val % 10 == 0
+            check_digit = (10 - (sum_val % 10)) % 10  # Last % 10 is needed for cases when sum_val % 10 == 0
             
             if int(clean_isbn[12]) != check_digit:
-                raise ValidationError(f'Неверная контрольная сумма ISBN-13: {value}')
+                raise ValidationError(f'Invalid ISBN-13 checksum: {value}')
         except (ValueError, IndexError) as e:
-            logger.error(f"Ошибка проверки ISBN-13: {str(e)}")
-            raise ValidationError(f'Ошибка при проверке ISBN-13: {value}')
+            logger.error(f"ISBN-13 validation error: {str(e)}")
+            raise ValidationError(f'Error validating ISBN-13: {value}')
     else:
-        raise ValidationError('ISBN должен содержать 10 или 13 символов.')
+        raise ValidationError('ISBN must contain 10 or 13 characters.')
 
 class Author(models.Model):
+    """
+    Author model representing book authors.
+    """
     name = models.CharField(max_length=255, unique=True)
     
     def __str__(self) -> str:
@@ -79,8 +82,11 @@ class Author(models.Model):
         ordering = ['name']
 
 class Book(models.Model):
+    """
+    Book model representing the main book entity with core attributes.
+    """
     title = models.CharField(max_length=255)
-    isbn = models.CharField(max_length=13, unique=True, validators=[validate_isbn])
+    isbn = models.CharField(max_length=21, unique=True, validators=[validate_isbn])
     description = models.TextField(blank=True, default='')
     published_date = models.DateField()
     authors = models.ManyToManyField('Author', related_name='books')
@@ -89,14 +95,17 @@ class Book(models.Model):
         return f"{self.title} - {', '.join(author.name for author in self.authors.all())}"
     
     def save(self, *args, **kwargs) -> None:
-        """Переопределяем метод save для запуска валидации перед сохранением."""
+        """Override save method to run validation before saving."""
         self.full_clean()
         super().save(*args, **kwargs)
 
 class BookISBN(models.Model):
+    """
+    BookISBN model for storing multiple ISBN formats for a single book.
+    """
     book = models.ForeignKey('Book', on_delete=models.CASCADE, related_name='isbns')
     isbn = models.CharField(
-        max_length=13,
+        max_length=21,
         unique=True,
         validators=[validate_isbn]
     )
@@ -109,8 +118,8 @@ class BookISBN(models.Model):
     class Meta:
         unique_together = ('book', 'isbn')
         indexes = [models.Index(fields=['isbn'], name='books_isbn_index')]
-        verbose_name = "Book`s ISBN"
-        verbose_name_plural = "Books` ISBN"
+        verbose_name = "Book's ISBN"
+        verbose_name_plural = "Books' ISBNs"
 
     def __str__(self):
         return f"{self.isbn} ({self.type})"

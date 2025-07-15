@@ -1,40 +1,46 @@
 import uuid
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from books.models import Book, BookISBN
+from books.models import Book, BookISBN, Author
 
 class BookModelTests(TestCase):
-    """Тесты для модели Book."""
+    """Tests for the Book model."""
 
     def setUp(self):
-        """Настройка тестовых данных."""
+        """Set up test data."""
         self.book_data = {
             'title': 'Test Book',
-            'author': 'Test Author',
             'isbn': '9780201896831',
             'description': 'Test description of the book',
             'published_date': '2023-01-01'
         }
+        # Create an author separately since it's now a M2M relationship
+        self.author = Author.objects.create(name='Test Author')
 
     def test_create_book(self):
-        """Тест создания книги с валидными данными."""
+        """Test creating a book with valid data."""
         book = Book.objects.create(**self.book_data)
+        # Add author after creation since it's a M2M field
+        book.authors.add(self.author)
+        
         self.assertEqual(book.title, self.book_data['title'])
-        self.assertEqual(book.author, self.book_data['author'])
+        self.assertEqual(book.authors.first().name, 'Test Author')
         self.assertEqual(book.isbn, self.book_data['isbn'])
         self.assertEqual(book.description, self.book_data['description'])
         self.assertEqual(str(book.published_date), self.book_data['published_date'])
         self.assertIsNotNone(book.id)
 
     def test_string_representation(self):
-        """Тест строкового представления модели."""
+        """Test the string representation of the model."""
         book = Book.objects.create(**self.book_data)
-        expected_string = f"{self.book_data['title']} - {self.book_data['author']}"
+        book.authors.add(self.author)
+        # String representation should use the first author's name
+        expected_string = f"{self.book_data['title']} - {self.author.name}"
         self.assertEqual(str(book), expected_string)
 
     def test_isbn_validation(self):
-        """Тест валидации ISBN."""
-        # Некорректный ISBN (неверная длина)
+        """Test ISBN validation."""
+        # Invalid ISBN (wrong length)
         invalid_data = self.book_data.copy()
         invalid_data['isbn'] = '123456'
 
@@ -42,7 +48,7 @@ class BookModelTests(TestCase):
         with self.assertRaises(ValidationError):
             book.full_clean()
 
-        # Корректный ISBN-10
+        # Valid ISBN-10
         valid_data = self.book_data.copy()
         valid_data['isbn'] = '0201896834'
 
@@ -50,9 +56,9 @@ class BookModelTests(TestCase):
         try:
             book.full_clean()
         except ValidationError:
-            self.fail("Валидация ISBN-10 некорректно выдает ошибку")
+            self.fail("ISBN-10 validation incorrectly raises an error")
 
-        # Корректный ISBN-13
+        # Valid ISBN-13
         valid_data = self.book_data.copy()
         valid_data['isbn'] = '9780201896831'
 
@@ -60,55 +66,54 @@ class BookModelTests(TestCase):
         try:
             book.full_clean()
         except ValidationError:
-            self.fail("Валидация ISBN-13 некорректно выдает ошибку")
+            self.fail("ISBN-13 validation incorrectly raises an error")
 
     def test_book_with_minimal_fields(self):
-        """Тест создания книги с минимальным набором полей."""
+        """Test creating a book with minimal fields."""
         minimal_data = {
             'title': 'Minimal Book',
-            'author': 'Minimal Author',
-            'isbn': '9780132350884',  # ISBN обязателен согласно валидатору
-            'published_date': '2023-01-01'  # Добавляем обязательное поле
+            'isbn': '9780132350884',  # ISBN required by validator
+            'published_date': '2023-01-01'  # Required field
         }
 
         book = Book.objects.create(**minimal_data)
+        book.authors.add(self.author)
+        
         self.assertEqual(book.title, minimal_data['title'])
-        self.assertEqual(book.author, minimal_data['author'])
+        self.assertEqual(book.authors.first().name, 'Test Author')
         self.assertEqual(book.isbn, minimal_data['isbn'])
         from datetime import datetime
         expected_date = datetime.strptime(minimal_data['published_date'], '%Y-%m-%d').date()
         self.assertEqual(book.published_date, expected_date)
-        self.assertEqual(book.description, '')  # Описание может быть пустым
+        self.assertEqual(book.description, '')  # Description can be empty
         self.assertIsNotNone(book.id)
 
     def test_book_validation_fails_without_isbn(self):
-        """Тест проверяет, что валидация не пропускает книгу без ISBN."""
+        """Test that validation fails for a book without ISBN."""
         minimal_data = {
             'title': 'Book Without ISBN',
-            'author': 'Test Author',
             'published_date': '2023-01-01'
         }
 
-        # Создаем объект, но НЕ сохраняем в БД
+        # Create object but DON'T save to DB
         book = Book(**minimal_data)
 
-        # Явно запускаем валидацию - должно выбрасывать исключение
+        # Explicitly run validation - should raise exception
         with self.assertRaises(ValidationError):
             book.full_clean()
 
     def test_book_validation_fails_with_invalid_isbn(self):
-        """Тест проверяет, что валидация не пропускает книгу с некорректным ISBN."""
+        """Test that validation fails for a book with invalid ISBN."""
         invalid_data = {
             'title': 'Book With Invalid ISBN',
-            'author': 'Test Author',
-            'isbn': '12345',  # Слишком короткий ISBN
+            'isbn': '12345',  # Too short for ISBN
             'published_date': '2023-01-01'
         }
 
-        # Создаем объект, но НЕ сохраняем в БД
+        # Create object but DON'T save to DB
         book = Book(**invalid_data)
 
-        # Явно запускаем валидацию - должно выбрасывать исключение
+        # Explicitly run validation - should raise exception
         with self.assertRaises(ValidationError):
             book.full_clean()
 
@@ -117,13 +122,15 @@ class BookISBNModelTest(TestCase):
     def setUp(self):
         self.book = Book.objects.create(
             title="Test Book",
-            author="Test Author",
-            isbn="9780201896831",  # Основной ISBN (для обратной совместимости)
+            isbn="9780201896831",  # Main ISBN (for backward compatibility)
             published_date="2023-01-01"
         )
+        # Add author to the book
+        author = Author.objects.create(name="Test Author")
+        self.book.authors.add(author)
 
     def test_create_multiple_isbns(self):
-        """Тестирование создания нескольких ISBN для одной книги."""
+        """Test creating multiple ISBNs for a single book."""
         isbn_13 = BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
         isbn_10 = BookISBN.objects.create(book=self.book, isbn="0201896834", type="ISBN-10")
 
@@ -132,12 +139,12 @@ class BookISBNModelTest(TestCase):
         self.assertEqual(isbn_10.type, "ISBN-10")
 
     def test_unique_isbn(self):
-        """Тестирование уникальности ISBN."""
+        """Test ISBN uniqueness."""
         BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
-        with self.assertRaises(Exception):  # Должно вызвать IntegrityError
+        with self.assertRaises(Exception):  # Should raise IntegrityError
             BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
 
     def test_str_method(self):
-        """Тестирование метода __str__ для BookISBN."""
+        """Test __str__ method for BookISBN."""
         isbn = BookISBN.objects.create(book=self.book, isbn="9780201896831", type="ISBN-13")
         self.assertEqual(str(isbn), "9780201896831 (ISBN-13)")

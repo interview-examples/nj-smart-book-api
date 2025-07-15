@@ -16,16 +16,16 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Определяем, используется ли Docker (наличие переменной DATABASE_URL)
+# Determine if Docker is being used (presence of DATABASE_URL environment variable)
 DOCKER_ENV = os.environ.get('DATABASE_URL') is not None
 
-# Выбираем, какой .env загружать
+# Choose which .env file to load
 if DOCKER_ENV:
-    ENV_FILE = ".env"  # Для Docker
+    ENV_FILE = ".env"  # For Docker
 else:
-    ENV_FILE = os.getenv("ENV_FILE", ".env.dev")  # Для локальной разработки
+    ENV_FILE = os.getenv("ENV_FILE", ".env.dev")  # For local development
 
-# Загрузка .env из корня проекта
+# Load .env from project root
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, ENV_FILE))
 
 SECRET_KEY: str | None = os.getenv("SECRET_KEY")
@@ -53,12 +53,14 @@ INSTALLED_APPS += [
     'drf_spectacular',
 ]
 
+# REST framework settings
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# API schema generation settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Books API',
+    'TITLE': 'Smart Books API',
     'DESCRIPTION': 'RESTful API for managing books with enrichment and caching',
     'VERSION': '1.0.0',
 }
@@ -97,19 +99,19 @@ WSGI_APPLICATION = 'books_api.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 if DOCKER_ENV:
-    # Конфигурация для Docker с PostgreSQL
+    # Database configuration for Docker with PostgreSQL
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('POSTGRES_DB'),
             'USER': os.getenv('POSTGRES_USER'),
             'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-            'HOST': 'db',  # Имя сервиса в docker-compose
+            'HOST': 'db',  # Service name in docker-compose
             'PORT': '5432',
         }
     }
 else:
-    # Стандартная конфигурация с SQLite
+    # Local development settings
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -159,26 +161,31 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Настройка кэширования
+# API Keys for external services
+GOOGLE_BOOKS_API_KEY = os.environ.get('GOOGLE_BOOKS_API_KEY', '')
+NY_TIMES_API_KEY = os.environ.get('NY_TIMES_API_KEY', '')
+
+# Cache configuration
 if DOCKER_ENV and os.getenv('REDIS_URL'):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": os.getenv('REDIS_URL'),
-            "TIMEOUT": 3600,  # 1 час по умолчанию
+            "TIMEOUT": 3600,  # 1 hour by default
         }
     }
 else:
+    # Local development cache (dummy cache)
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         }
     }
 
-# TODO: позже подготовить профессиональный логгер:
-# - с разными уровнями для Django и твоего приложения
-# - логами в файл с ежедневной ротацией
-# - поддержкой форматированного JSON-лога (для будущей аналитики)
+# TODO: later prepare a professional logger:
+# - with different levels for Django and the app
+# - with logs in a file with daily rotation
+# - with support for formatted JSON logs (for future analytics)
 LOGGING = {
     'version': 1,
     'handlers': {

@@ -5,6 +5,7 @@ Provides methods to search for books and retrieve book data from Google Books.
 
 import logging
 import requests
+import json
 from typing import Dict, Any, List, Optional
 
 from django.conf import settings

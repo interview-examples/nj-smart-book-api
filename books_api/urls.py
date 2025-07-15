@@ -16,15 +16,26 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from django.http import HttpResponse
+
+from books_api.views import api_schema, api_docs
+
+def root_view(request):
+    return HttpResponse("Welcome to Smart Books API. Visit <a href='/api/v1/docs/'>API Documentation</a> for more information.")
 
 urlpatterns = [
+    # Admin
     path('admin/', admin.site.urls),
+
+    # Root URL
+    path('', root_view, name='root'),
+
+    # API endpoints
     path('api/v1/', include('books.urls')),
 ]
 
-# API documentation SWAGGER
+# API documentation - simple custom implementation
 urlpatterns += [
-    path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/v1/schema/', api_schema, name='schema'),
+    path('api/v1/docs/', api_docs, name='swagger-ui'),
 ]

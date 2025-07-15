@@ -5,7 +5,7 @@ Provides methods to retrieve book reviews from NY Times Books API.
 
 import logging
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from django.conf import settings
 
@@ -154,6 +154,34 @@ class NYTimesService(ReviewService):
         except APIException as e:
             logger.error(f"Error retrieving NY Times bestseller list '{list_name}': {str(e)}")
             return {}
+
+    @cached_api_call(cache_timeout=CACHE_TIMEOUT)
+    def get_bestseller_lists(self) -> List[Dict[str, Any]]:
+        """
+        Get all available bestseller lists from NY Times Books API.
+        
+        This is different from get_list_names() which only returns the names.
+        This method returns full details about each list.
+
+        Returns:
+            List[Dict[str, Any]]: List of bestseller lists with full details
+        """
+        if not self.api_key:
+            logger.warning("Cannot retrieve NY Times bestseller lists: No API key configured")
+            return []
+
+        url = f"{self.BASE_URL}/lists/names.json"
+
+        try:
+            data = self._make_request(url)
+            if not data or not data.get('results'):
+                return []
+
+            return data.get('results', [])
+
+        except APIException as e:
+            logger.error(f"Error retrieving NY Times bestseller lists: {str(e)}")
+            return []
 
     def get_list_names(self) -> list:
         """

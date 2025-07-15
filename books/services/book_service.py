@@ -4,66 +4,219 @@ from books.repositories.book_repository import BookRepository
 from datetime import datetime
 
 class BookService:
-    """Сервис для бизнес-логики работы с книгами."""
+    """Service for book business logic operations."""
 
     def __init__(self, repository: BookRepository = None):
         self.repository = repository or BookRepository()
 
     def get_book_by_id(self, book_id: int) -> Optional[Book]:
-        """Получение книги по ID."""
+        """
+        Get a book by its ID.
+        
+        Args:
+            book_id: ID of the book to retrieve
+            
+        Returns:
+            Optional[Book]: Book object or None if not found
+        """
         return self.repository.get_by_id(book_id)
 
     def get_all_books(self) -> List[Book]:
-        """Получение списка всех книг."""
+        """
+        Get a list of all books.
+        
+        Returns:
+            List[Book]: List of all book objects
+        """
         return self.repository.get_all()
+        
+    def get_book_by_isbn(self, isbn: str) -> Optional[Book]:
+        """
+        Get a book by its ISBN.
+        
+        Args:
+            isbn: ISBN of the book to retrieve (ISBN-10 or ISBN-13 format)
+            
+        Returns:
+            Optional[Book]: Book object or None if not found
+        """
+        if not isbn:
+            return None
+            
+        try:
+            # Clean the ISBN by removing hyphens and spaces
+            clean_isbn = isbn.replace('-', '').replace(' ', '')
+            
+            # First try direct match
+            try:
+                book_isbn = BookISBN.objects.get(isbn=clean_isbn)
+                return book_isbn.book
+            except BookISBN.DoesNotExist:
+                pass
+                
+            # Try match against Book model's isbn field
+            try:
+                book = Book.objects.get(isbn=clean_isbn)
+                
+                # If found, check if this book has other ISBN formats that could be useful
+                other_isbns = BookISBN.objects.filter(book=book).values_list('isbn', flat=True)
+                if other_isbns:
+                    import logging
+                    logging.info(f"Book found with ISBN {clean_isbn} also has these ISBNs: {', '.join(other_isbns)}")
+                
+                return book
+            except Book.DoesNotExist:
+                pass
+                
+            # Try case-insensitive search
+            book_isbn = BookISBN.objects.filter(isbn__iexact=clean_isbn).first()
+            if book_isbn:
+                return book_isbn.book
+                
+            # Try search with different formatting
+            book = Book.objects.filter(isbn__iexact=clean_isbn).first()
+            if book:
+                return book
+                
+            return None
+        except Exception as e:
+            import logging
+            logging.error(f"Error searching for book by ISBN {isbn}: {str(e)}")
+            return None
+            
+    def _process_book_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process book data before creating or updating a book.
+        
+        Args:
+            data: Book data dictionary
+            
+        Returns:
+            Dict[str, Any]: Processed book data
+        """
+        # Create a copy to avoid modifying the original
+        processed_data = data.copy()
+        
+        # Remove unsupported fields
+        processed_data.pop('auto_fill', None)
+        
+        # Handle authors properly
+        authors = processed_data.get('authors', [])
+        if isinstance(authors, list) and authors and not isinstance(authors[0], Author):
+            author_objects = []
+            for author_data in authors:
+                if isinstance(author_data, str):
+                    author, _ = Author.objects.get_or_create(name=author_data)
+                    author_objects.append(author)
+                else:
+                    author_objects.append(author_data)
+            processed_data['authors'] = author_objects
+            
+        return processed_data
 
     def create_book(self, data: dict) -> Book:
         """
-        Создает новую книгу на основе предоставленных данных.
+        Create a new book based on provided data.
+        
         Args:
-            data: Данные для создания книги.
+            data: Data for creating the book
+            
         Returns:
-            Book: Созданный объект книги.
+            Book: Created book object
         """
-        data.pop('auto_fill', None)  # Удаляем неподдерживаемое поле
-        return self.repository.create(**data)
+        processed_data = self._process_book_data(data)
+        return self.repository.create(**processed_data)
 
     def update_book(self, book_id: int, data: Dict) -> Optional[Book]:
         """
-        Обновляет существующую книгу на основе предоставленных данных.
+        Update an existing book based on provided data.
+        
         Args:
-            book_id: ID книги для обновления.
-            data: Данные для обновления книги.
+            book_id: ID of the book to update
+            data: Data for updating the book
+            
         Returns:
-            Optional[Book]: Обновленный объект книги или None, если книга не найдена.
+            Optional[Book]: Updated book object or None if book not found
         """
-        if 'published_date' not in data or data['published_date'] is None:
-            data['published_date'] = datetime.now().date()
-        return self.repository.update(book_id, **data)
+        processed_data = self._process_book_data(data)
+        
+        if 'published_date' not in processed_data or processed_data['published_date'] is None:
+            processed_data['published_date'] = datetime.now().date()
+            
+        return self.repository.update(book_id, **processed_data)
 
     def delete_book(self, book_id: int) -> bool:
-        """Удаление книги."""
+        """
+        Delete a book.
+        
+        Args:
+            book_id: ID of the book to delete
+            
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
         return self.repository.delete(book_id)
 
-    def get_book_by_isbn(self, isbn: str) -> Optional[Book]:
-        """Получение книги по ISBN."""
-        from books.models import BookISBN
-        try:
-            book_isbn = BookISBN.objects.get(isbn=isbn)
-            return book_isbn.book
-        except BookISBN.DoesNotExist:
-            return None
-
     def get_book_by_all_isbns(self, isbn: str) -> Optional[Book]:
-        """Получение книги по любому из связанных ISBN."""
+        """
+        Get a book by any of its associated ISBNs.
+        
+        Args:
+            isbn: ISBN to search for
+            
+        Returns:
+            Optional[Book]: Book object or None if not found
+        """
+        if not isbn:
+            return None
+            
+        # Clean the ISBN by removing hyphens and spaces
+        clean_isbn = isbn.replace('-', '').replace(' ', '')
+        
         from books.models import BookISBN
-        book_isbn = BookISBN.objects.filter(isbn=isbn).first()
+        
+        # First try exact match
+        book_isbn = BookISBN.objects.filter(isbn=clean_isbn).first()
         if book_isbn:
             return book_isbn.book
+            
+        # Try case-insensitive match
+        book_isbn = BookISBN.objects.filter(isbn__iexact=clean_isbn).first()
+        if book_isbn:
+            return book_isbn.book
+            
+        # Try to find similar ISBNs (e.g., conversion between ISBN-10 and ISBN-13)
+        # This is a simplified approach - a proper ISBN-10 to ISBN-13 conversion would be better
+        if len(clean_isbn) == 10:
+            # If it's an ISBN-10, look for ISBN-13 with same ending
+            possible_isbn13s = BookISBN.objects.filter(
+                isbn__endswith=clean_isbn,
+                isbn_type="ISBN-13"
+            )
+            if possible_isbn13s.exists():
+                return possible_isbn13s.first().book
+        elif len(clean_isbn) == 13 and clean_isbn.startswith('978'):
+            # If it's an ISBN-13, look for ISBN-10 with same ending minus the prefix
+            possible_isbn10s = BookISBN.objects.filter(
+                isbn__endswith=clean_isbn[3:],
+                isbn_type="ISBN-10"
+            )
+            if possible_isbn10s.exists():
+                return possible_isbn10s.first().book
+                
         return None
 
     def enrich_book_data(self, book: Book, enrichment_service) -> Any:
-        """Enriching book data using the enrichment service."""
+        """
+        Enrich book data using the enrichment service.
+        
+        Args:
+            book: Book object to enrich
+            enrichment_service: Service to use for enrichment
+            
+        Returns:
+            Any: Enriched data or None if enrichment failed
+        """
         enrichment_data = enrichment_service.enrich_book_data(book.isbn)
         if not enrichment_data:
             return None
@@ -100,5 +253,13 @@ class BookService:
         return enrichment_data
 
     def search_books(self, query: str) -> List[Book]:
-        """Поиск книг по названию или автору."""
+        """
+        Search for books by title or author.
+        
+        Args:
+            query: Search query
+            
+        Returns:
+            List[Book]: List of matching book objects
+        """
         return self.repository.search(query)

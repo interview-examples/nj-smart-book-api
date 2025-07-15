@@ -19,20 +19,20 @@ from .services.book_stats_service import BookStatsService
 
 
 class BookPagination(PageNumberPagination):
-    """Кастомная пагинация для книг"""
+    """Custom pagination for books"""
     page_size = 20
     page_size_query_param = 'page_size'
     max_page_size = 100
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    """ViewSet для CRUD операций с книгами."""
+    """ViewSet for CRUD operations with books."""
     queryset = Book.objects.all().order_by('title', 'published_date')
     pagination_class = BookPagination
     service = BookService()
 
     def get_serializer_class(self) -> type:
-        """Выбор сериализатора в зависимости от действия"""
+        """Select serializer based on the action"""
         if self.action in ['create', 'update', 'partial_update']:
             return BookCreateUpdateSerializer
         elif self.action == 'retrieve':
@@ -41,10 +41,10 @@ class BookViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Получает базовый QuerySet для книг в зависимости от действия.
-        Для списка возвращает все книги, для поиска по ISBN - фильтрует по ISBN.
+        Get the base QuerySet for books depending on the action.
+        For list, returns all books; for ISBN search, filters by ISBN.
         """
-        # Определяем базовое упорядочивание, которое будет применяться ко всем queryset
+        # Define base ordering to be applied to all querysets
         ordering = ('title', 'published_date')
         
         action = getattr(self, 'action', None)
@@ -57,7 +57,7 @@ class BookViewSet(viewsets.ModelViewSet):
                 return Book.objects.none()
             return Book.objects.none()
         
-        # Поиск по названию, автору или ISBN
+        # Search by title, author or ISBN
         search = self.request.query_params.get('search', None)
         if search:
             return Book.objects.filter(
@@ -66,12 +66,12 @@ class BookViewSet(viewsets.ModelViewSet):
                 Q(isbn__icontains=search)
             ).order_by(*ordering)
 
-        # Фильтрация по автору
+        # Filter by author
         author = self.request.query_params.get('author', None)
         if author:
             return Book.objects.filter(author__icontains=author).order_by(*ordering)
 
-        # Фильтрация по году публикации
+        # Filter by publication year
         year = self.request.query_params.get('year', None)
         if year and year.isdigit():
             return Book.objects.filter(published_date__year=year).order_by(*ordering)
@@ -82,54 +82,73 @@ class BookViewSet(viewsets.ModelViewSet):
         parameters=[
             OpenApiParameter(
                 name='search',
-                description='Поиск по названию, автору или ISBN',
+                description='Search by title, author or ISBN',
                 required=False,
                 type=OpenApiTypes.STR,
             ),
             OpenApiParameter(
                 name='author',
-                description='Фильтрация по автору',
+                description='Filter by author',
                 required=False,
                 type=OpenApiTypes.STR,
             ),
             OpenApiParameter(
                 name='year',
-                description='Фильтрация по году публикации',
+                description='Filter by publication year',
                 required=False,
                 type=OpenApiTypes.INT,
             ),
         ],
         responses={200: BookSerializer(many=True)},
+        description="List books with search and filtering capabilities"
     )
     def list(self, request: Request, *args, **kwargs) -> Response:
-        """Список книг с возможностью поиска и фильтрации"""
+        """List books with search and filtering capabilities"""
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         responses={200: EnrichedBookSerializer},
+        description="Get a book with enriched data from external sources"
     )
     def retrieve(self, request: Request, *args, **kwargs) -> Response:
-        """Получение книги с обогащенными данными"""
+        """Get a book with enriched data from external sources"""
         book = self.service.get_book_by_id(int(kwargs.get('pk')))
         if not book:
             return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
         serializer = self.get_serializer(book)
         return Response(serializer.data)
 
+    @extend_schema(
+        request=BookCreateUpdateSerializer,
+        responses={201: BookSerializer},
+        description="Create a new book"
+    )
     def create(self, request, *args, **kwargs):
+        """Create a new book"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         book = self.service.create_book(serializer.validated_data)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        request=BookCreateUpdateSerializer,
+        responses={200: BookSerializer},
+        description="Update an existing book"
+    )
     def update(self, request, *args, **kwargs):
+        """Update an existing book"""
         book = self.service.update_book(int(kwargs.get('pk')), request.data)
         if not book:
             return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
         serializer = self.get_serializer(book)
         return Response(serializer.data)
 
+    @extend_schema(
+        responses={204: None},
+        description="Delete a book"
+    )
     def destroy(self, request, *args, **kwargs):
+        """Delete a book"""
         success = self.service.delete_book(int(kwargs.get('pk')))
         if not success:
             return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -139,15 +158,17 @@ class BookViewSet(viewsets.ModelViewSet):
         parameters=[
             OpenApiParameter(
                 name='q',
-                description='Поиск по названию, автору или ISBN',
+                description='Search query for title, author or ISBN',
                 required=False,
                 type=OpenApiTypes.STR,
             ),
         ],
         responses={200: BookSerializer(many=True)},
+        description="Search books by title, author or ISBN"
     )
     @action(detail=False, methods=['get'])
     def search(self, request):
+        """Search books by title, author or ISBN"""
         query = self.request.query_params.get('q', '')
         books = self.service.search_books(query)
         page = self.paginate_queryset(books)
@@ -157,8 +178,37 @@ class BookViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(books, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='isbn/(?P<isbn>[^/.]+)')
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='isbn',
+                description='ISBN-10 or ISBN-13 of the book (with or without hyphens)',
+                required=True,
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.PATH,
+            ),
+        ],
+        responses={
+            200: EnrichedBookSerializer,
+            404: OpenApiTypes.OBJECT,
+        },
+        description="Get a book by its ISBN"
+    )
+    def get_by_isbn(self, request, isbn=None):
+        """
+        Get a book by its ISBN-10 or ISBN-13.
+        Returns enriched book data with information from external sources.
+        """
+        book = self.service.get_book_by_isbn(isbn)
+        if not book:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EnrichedBookSerializer(book)
+        return Response(serializer.data)
+
+
 class EnrichmentViewSet(viewsets.ViewSet):
-    """ViewSet для обогащения данных о книгах из внешних источников."""
+    """ViewSet for enriching book data from external sources."""
     
     service = EnrichmentService(BookService())
     
@@ -169,15 +219,17 @@ class EnrichmentViewSet(viewsets.ViewSet):
         parameters=[
             OpenApiParameter(
                 name='isbn',
-                description='ISBN книги для обогащения',
+                description='ISBN of the book to enrich',
                 required=True,
                 type=OpenApiTypes.STR,
             ),
         ],
         responses={200: dict},
+        description="Enrich book data using ISBN from external sources"
     )
     @action(detail=False, methods=['get'])
     def enrich_by_isbn(self, request):
+        """Enrich book data using ISBN from external sources"""
         isbn = request.GET.get('isbn', '')
         if not isbn:
             return Response({'error': 'ISBN parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -189,9 +241,11 @@ class EnrichmentViewSet(viewsets.ViewSet):
     @extend_schema(
         request=BookSearchSerializer,
         responses={200: BookSearchSerializer},
+        description="Search for books in external sources"
     )
     @action(detail=False, methods=['post'])
     def search_external(self, request):
+        """Search for books in external sources"""
         query = request.data.get('query', '')
         if not query:
             return Response({'error': 'Query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -199,9 +253,14 @@ class EnrichmentViewSet(viewsets.ViewSet):
         return Response(results)
 
 class StatsView(generics.GenericAPIView):
-    """View для получения статистики по книгам."""
+    """View for getting book statistics."""
     service = BookStatsService()
 
+    @extend_schema(
+        responses={200: dict},
+        description="Get statistics about books in the database"
+    )
     def get(self, request, *args, **kwargs):
+        """Get statistics about books in the database"""
         stats = self.service.get_stats()
         return Response(stats)

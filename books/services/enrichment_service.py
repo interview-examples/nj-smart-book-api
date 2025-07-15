@@ -5,16 +5,16 @@ from books.services.book_service import BookService
 from books.repositories.book_repository import BookRepository
 
 class EnrichmentService:
-    """Сервис для обогащения данных о книгах из внешних источников."""
+    """Service for enriching book data from external sources."""
 
     def __init__(self, book_service: BookService, external_service=None, book_repository=None):
         """
-        Инициализация сервиса с внедрением зависимостей.
+        Initialize the service with dependency injection.
         
         Args:
-            book_service: Сервис для работы с книгами
-            external_service: Сервис для обогащения данных книг. Если None, создается экземпляр по умолчанию.
-            book_repository: Репозиторий для работы с книгами. Если None, создается экземпляр по умолчанию.
+            book_service: Service for working with books
+            external_service: Service for enriching book data. If None, a default instance is created.
+            book_repository: Repository for working with books. If None, a default instance is created.
         """
         self.book_service = book_service
         self.external_service = external_service or BookEnrichmentService()
@@ -22,23 +22,25 @@ class EnrichmentService:
 
     def enrich_book_by_isbn(self, isbn: str) -> Optional[Book]:
         """
-        Обогащает данные о книге по ISBN, используя внешний сервис.
-        Если книга уже существует, обновляет ее; если нет - создает новую.
+        Enriches book data by ISBN using an external service.
+        If the book already exists, updates it; if not, creates a new one.
+        
         Args:
-            isbn: ISBN книги для обогащения.
+            isbn: ISBN of the book to enrich.
+            
         Returns:
-            Optional[Book]: Обогащенный объект книги или None, если обогащение не удалось.
+            Optional[Book]: Enriched book object or None if enrichment failed.
         """
         book = self.book_service.get_book_by_isbn(isbn)
         enriched_data = self.external_service.enrich_book_data(isbn)
         if not enriched_data:
             return None
-        # Проверяем, является ли enriched_data словарем или объектом с методом dict()
+        # Check if enriched_data is a dictionary or an object with a dict() method
         if hasattr(enriched_data, 'dict'):
             enriched_dict = enriched_data.dict()
         else:
             enriched_dict = vars(enriched_data) if not isinstance(enriched_data, dict) else enriched_data
-        # Фильтруем только поддерживаемые поля для модели Book
+        # Filter only supported fields for the Book model
         valid_fields = {field.name for field in Book._meta.get_fields()}
         filtered_data = {k: v for k, v in enriched_dict.items() if k in valid_fields}
         if book:
@@ -53,9 +55,17 @@ class EnrichmentService:
             return new_book
 
     def search_external(self, query: str) -> List[Dict[str, Any]]:
-        """Поиск книг во внешних источниках."""
+        """
+        Search for books in external sources.
+        
+        Args:
+            query: Search query string
+            
+        Returns:
+            List[Dict[str, Any]]: List of search results from external APIs
+        """
         results = []
-        # Здесь можно реализовать поиск через несколько внешних API
+        # Here we can implement search through multiple external APIs
         google_results = self.external_service.google_books.search_books(query)
         if google_results:
             results.extend(google_results)
@@ -65,7 +75,15 @@ class EnrichmentService:
         return results
 
     def _format_book_data(self, book: Book) -> Dict[str, Any]:
-        """Форматирование данных книги для ответа API."""
+        """
+        Format book data for API response.
+        
+        Args:
+            book: Book object to format
+            
+        Returns:
+            Dict[str, Any]: Formatted book data
+        """
         return {
             'id': book.id,
             'title': book.title,
@@ -73,32 +91,33 @@ class EnrichmentService:
             'isbn': book.isbn,
             'description': book.description,
             'published_date': book.published_date,
-            # Добавьте другие поля, если они есть в модели
+            # Add other fields if they exist in the model
         }
 
     def create_additional_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
         """
-        Создание записей ISBN для книги.
+        Create ISBN records for a book.
         
         Args:
-            book: Объект книги
-            isbn_list: Список словарей с данными ISBN
+            book: Book object
+            isbn_list: List of dictionaries with ISBN data
         """
-        if not isbn_list:  # Защита от None и пустых списков
+        if not isbn_list:  # Protection against None and empty lists
             return
             
         for isbn_data in isbn_list:
             isbn_value = isbn_data.get('identifier', '')
-            # Обеспечиваем единообразие формата типа ISBN, преобразуя все в формат с дефисом
+            # Ensure consistency in ISBN type format, converting all to hyphenated format
             isbn_type_raw = isbn_data.get('type', '')
             
-            # Принимаем как формат с подчеркиванием (ISBN_10), так и с дефисом (ISBN-10)
+            # Accept both underscore format (ISBN_10) and hyphenated format (ISBN-10)
             if isbn_type_raw in ['ISBN_10', 'ISBN-10']:
                 isbn_type = 'ISBN-10'
             elif isbn_type_raw in ['ISBN_13', 'ISBN-13']:
                 isbn_type = 'ISBN-13'
             else:
-                continue  # Пропускаем неизвестные типы
-            
-            if isbn_value:
-                self.repository.create_isbn(book, isbn_value, isbn_type)
+                continue  # Skip if not a recognized ISBN type
+                
+            # Create ISBN record if it doesn't exist
+            if isbn_value and len(isbn_value) > 0:
+                BookISBN.objects.get_or_create(book=book, isbn=isbn_value, isbn_type=isbn_type)
