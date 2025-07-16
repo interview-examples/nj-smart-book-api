@@ -261,22 +261,48 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
     @override_settings(BOOK_ENRICHMENT_CACHE_TIMEOUT=60)
     def test_caching(self):
         """Test that responses are properly cached."""
-        # Setup mock Google Books service to return data
-        self.google_books_service.get_book_data.return_value = self.google_books_data
-        self.google_books_service.to_enrichment_data.return_value = self.google_enrichment_data
-
-        # First call should hit the API
+        cache.clear()
+        
+        from books.services.models.data_models import BookEnrichmentData
+        real_data = BookEnrichmentData(
+            isbn=self.test_isbn,
+            title="Test Book",
+            authors=["Test Author"],
+            published_date="2023-01-01",
+            source="Google Books"
+        )
+        
+        self.google_books_service.get_book_data.return_value = {"title": "Test Book"}
+        self.google_books_service.to_enrichment_data.return_value = real_data
+        
+        self.open_library_service.get_book_data.return_value = None
+        self.ny_times_service.get_book_review.return_value = None
+        
+        self.google_books_service.get_book_data.reset_mock()
+        self.open_library_service.get_book_data.reset_mock()
+        self.ny_times_service.get_book_review.reset_mock()
+        
         result1 = self.service.enrich_book_data(self.test_isbn)
+        
         self.assertEqual(self.google_books_service.get_book_data.call_count, 1)
-
-        # Second call should use cache
+        
+        self.google_books_service.get_book_data.reset_mock()
+        self.open_library_service.get_book_data.reset_mock()
+        self.ny_times_service.get_book_review.reset_mock()
+        
         result2 = self.service.enrich_book_data(self.test_isbn)
-        self.assertEqual(self.google_books_service.get_book_data.call_count, 1)  # Still 1
-
-        # Clear cache and call again
+        
+        self.assertEqual(result1.title, result2.title)
+        self.assertEqual(result1.authors, result2.authors)
+        
+        self.assertEqual(self.google_books_service.get_book_data.call_count, 0)
+        self.assertEqual(self.open_library_service.get_book_data.call_count, 0)
+        self.assertEqual(self.ny_times_service.get_book_review.call_count, 0)
+        
         cache.clear()
         result3 = self.service.enrich_book_data(self.test_isbn)
-        self.assertEqual(self.google_books_service.get_book_data.call_count, 2)  # Incremented
+        
+        self.assertEqual(self.google_books_service.get_book_data.call_count, 1)
 
 
 class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):

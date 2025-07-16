@@ -50,7 +50,7 @@ MOCK_NY_TIMES_RESPONSE = {
 }
 
 class ExternalAPIsCacheTests(unittest.TestCase):
-    """Тесты для проверки кэширования запросов к внешним API."""
+    """Tests for caching external API requests."""
     def setUp(self):
         cache.clear()
 
@@ -58,7 +58,7 @@ class ExternalAPIsCacheTests(unittest.TestCase):
         cache.clear()
 
     def test_google_books_caching(self):
-        """Тест кэширования запросов к Google Books API."""
+        """Test caching for Google Books API requests."""
         service = GoogleBooksService()
         with mock.patch.object(service, '_make_request') as mock_make_request:
             mock_make_request.return_value = MOCK_GOOGLE_BOOKS_RESPONSE
@@ -71,7 +71,7 @@ class ExternalAPIsCacheTests(unittest.TestCase):
             self.assertEqual(result1.get('title'), result2.get('title'))
 
     def test_open_library_caching(self):
-        """Тест кэширования запросов к Open Library API."""
+        """Test caching for Open Library API requests."""
         service = OpenLibraryService()
         with mock.patch.object(service, '_make_request') as mock_make_request:
             mock_make_request.return_value = MOCK_OPEN_LIBRARY_RESPONSE
@@ -85,7 +85,7 @@ class ExternalAPIsCacheTests(unittest.TestCase):
 
     @override_settings(NY_TIMES_API_KEY='test_key')
     def test_ny_times_caching(self):
-        """Тест кэширования запросов к NY Times API."""
+        """Test caching for NY Times API requests."""
         service = NYTimesService()
         with mock.patch.object(service, '_make_request') as mock_make_request:
             mock_make_request.return_value = MOCK_NY_TIMES_RESPONSE
@@ -98,20 +98,20 @@ class ExternalAPIsCacheTests(unittest.TestCase):
             self.assertEqual(result1, result2)
 
 class EnrichmentServiceCacheTests(unittest.TestCase):
-    """Тесты для проверки кэширования BookEnrichmentService."""
+    """Tests for caching BookEnrichmentService."""
 
     def setUp(self):
         self.enrichment_service = BookEnrichmentService()
         cache.clear()
 
-        # Патчим метод get_book_data в GoogleBooksService
+        # Patch the get_book_data method in GoogleBooksService
         self.google_patcher = mock.patch.object(
             self.enrichment_service.google_books,
             'get_book_data',
             autospec=True
         )
         self.mock_google_get_book_data = self.google_patcher.start()
-        # Возвращаем данные о книге, которые будут преобразованы в BookEnrichmentData
+        # Return book data that will be converted to BookEnrichmentData
         self.mock_google_get_book_data.return_value = {
             "title": "Mocked Google Book",
             "authors": ["Test Google Author"],
@@ -121,7 +121,7 @@ class EnrichmentServiceCacheTests(unittest.TestCase):
             ]
         }
 
-        # Патчим метод get_book_data в OpenLibraryService
+        # Patch the get_book_data method in OpenLibraryService
         self.ol_patcher = mock.patch.object(
             self.enrichment_service.open_library,
             'get_book_data',
@@ -135,7 +135,7 @@ class EnrichmentServiceCacheTests(unittest.TestCase):
             "identifiers": {"isbn_13": ["9781234567890"]}
         }
 
-        # Патчим метод get_book_review в NYTimesService
+        # Patch the get_book_review method in NYTimesService
         self.nyt_patcher = mock.patch.object(
             self.enrichment_service.ny_times,
             'get_book_review',
@@ -151,14 +151,14 @@ class EnrichmentServiceCacheTests(unittest.TestCase):
         cache.clear()
 
     def test_enrichment_service_caching(self):
-        """Тест кэширования для сервиса обогащения данных."""
+        """Test caching for the book enrichment service."""
         TEST_ISBN = "9781234567890"
         result1 = self.enrichment_service.enrich_book_data(TEST_ISBN)
         self.assertEqual(self.mock_google_get_book_data.call_count, 1)
         self.assertEqual(self.mock_ol_get_book_data.call_count, 1)
         self.assertEqual(self.mock_nyt_get_book_review.call_count, 1)
 
-        # Сбрасываем все счетчики
+        # Reset all counters
         self.mock_google_get_book_data.reset_mock()
         self.mock_ol_get_book_data.reset_mock()
         self.mock_nyt_get_book_review.reset_mock()

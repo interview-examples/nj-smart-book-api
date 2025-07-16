@@ -13,11 +13,12 @@ T = TypeVar('T')
 class APIException(Exception):
     """Base exception for all API-related errors."""
 
-    def __init__(self, message: str, source: str = None, original_error: Exception = None):
+    def __init__(self, message: str, source: str = None, original_error: Exception = None, status_code: int = None):
         self.message = message
         self.source = source
         self.original_error = original_error
-        super().__init__(f"{source + ': ' if source else ''}{message}")
+        self.status_code = status_code
+        super().__init__(f"{source + ': ' if source else ''}API Error: {message}")
 
 
 class APITimeoutException(APIException):
@@ -29,7 +30,7 @@ class APIResponseException(APIException):
     """Exception raised when an API returns an error response."""
 
     def __init__(self, message: str, status_code: int = None, **kwargs):
-        self.status_code = status_code
+        kwargs['status_code'] = status_code
         super().__init__(message, **kwargs)
 
 

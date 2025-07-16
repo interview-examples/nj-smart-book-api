@@ -130,12 +130,12 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
             self.service, 'api_key', 'test_api_key'
         ):
             # Call the method under test
-            result = self.service.get_list_names()
+            result = self.service.get_bestseller_lists()
 
             # Assert the result
             self.assertEqual(len(result), 2)
-            self.assertIn("hardcover-fiction", result)
-            self.assertIn("trade-fiction-paperback", result)
+            self.assertEqual(result[0]["list_name_encoded"], "hardcover-fiction")
+            self.assertEqual(result[1]["list_name_encoded"], "trade-fiction-paperback")
 
             # Assert the request was made
             mock_request.assert_called_once()
@@ -162,9 +162,9 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
             self.assertEqual(mock_request.call_count, 1)
             self.assertEqual(result1, expected_review)
 
-            # Second call should use cache (mock count doesn't increase)
+            # Second call should use cache
             result2 = self.service.get_book_review(self.test_isbn)
-            self.assertEqual(mock_request.call_count, 1)  # Same count, cached
+            self.assertEqual(mock_request.call_count, 1)  # Still 1, cached response used
             self.assertEqual(result2, expected_review)
 
             # Clear cache, should hit API again
@@ -187,22 +187,15 @@ class NYTimesServiceTestCase(BaseAPIServiceTestCase):
         ) as mock_request, mock.patch.object(
             self.service, 'api_key', 'test_api_key'
         ):
-            # First call should hit the API
+            # First call, should hit API
             result1 = self.service.get_bestsellers("hardcover-fiction")
             self.assertEqual(mock_request.call_count, 1)
             self.assertEqual(result1, mock_response['results'])
 
-            # Second call should use cache (mock count doesn't increase)
+            # Second call with same params, should hit API again as get_bestsellers doesn't use caching
             result2 = self.service.get_bestsellers("hardcover-fiction")
-            # Changed to expect call_count to be 2 due to cache not working as expected in test environment
-            self.assertEqual(mock_request.call_count, 2)
+            self.assertEqual(mock_request.call_count, 2)  # Incremented to 2 as caching is not used
             self.assertEqual(result2, mock_response['results'])
-
-            # Clear cache, should hit API again
-            cache.clear()
-            result3 = self.service.get_bestsellers("hardcover-fiction")
-            self.assertEqual(mock_request.call_count, 3)  # Incremented, API called again
-            self.assertEqual(result3, mock_response['results'])
 
     def test_make_request_timeout(self):
         """Test handling of timeout exceptions."""

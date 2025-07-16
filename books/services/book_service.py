@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from books.models import Book, BookISBN, Author
 from books.repositories.book_repository import BookRepository
 from datetime import datetime
@@ -157,54 +157,64 @@ class BookService:
         """
         return self.repository.delete(book_id)
 
-    def get_book_by_all_isbns(self, isbn: str) -> Optional[Book]:
+    def get_book_by_all_isbns(self, isbn: Union[str, List[str]]) -> Optional[Book]:
         """
         Get a book by any of its associated ISBNs.
+        Supports both a single ISBN string or a list of ISBNs.
         
         Args:
-            isbn: ISBN to search for
+            isbn: Single ISBN or list of ISBNs to search for
             
         Returns:
-            Optional[Book]: Book object or None if not found
+            Optional[Book]: Book found by ISBN or None
         """
         if not isbn:
             return None
             
-        # Clean the ISBN by removing hyphens and spaces
-        clean_isbn = isbn.replace('-', '').replace(' ', '')
-        
-        from books.models import BookISBN
-        
-        # First try exact match
-        book_isbn = BookISBN.objects.filter(isbn=clean_isbn).first()
-        if book_isbn:
-            return book_isbn.book
+        # Handle both single ISBN string and list of ISBNs
+        if isinstance(isbn, list):
+            # If it's a list, try each ISBN in turn
+            for single_isbn in isbn:
+                book = self.get_book_by_isbn(single_isbn)
+                if book:
+                    return book
+            return None
+        else:
+            # Clean the ISBN by removing hyphens and spaces
+            clean_isbn = isbn.replace('-', '').replace(' ', '')
             
-        # Try case-insensitive match
-        book_isbn = BookISBN.objects.filter(isbn__iexact=clean_isbn).first()
-        if book_isbn:
-            return book_isbn.book
+            from books.models import BookISBN
             
-        # Try to find similar ISBNs (e.g., conversion between ISBN-10 and ISBN-13)
-        # This is a simplified approach - a proper ISBN-10 to ISBN-13 conversion would be better
-        if len(clean_isbn) == 10:
-            # If it's an ISBN-10, look for ISBN-13 with same ending
-            possible_isbn13s = BookISBN.objects.filter(
-                isbn__endswith=clean_isbn,
-                isbn_type="ISBN-13"
-            )
-            if possible_isbn13s.exists():
-                return possible_isbn13s.first().book
-        elif len(clean_isbn) == 13 and clean_isbn.startswith('978'):
-            # If it's an ISBN-13, look for ISBN-10 with same ending minus the prefix
-            possible_isbn10s = BookISBN.objects.filter(
-                isbn__endswith=clean_isbn[3:],
-                isbn_type="ISBN-10"
-            )
-            if possible_isbn10s.exists():
-                return possible_isbn10s.first().book
+            # First try exact match
+            book_isbn = BookISBN.objects.filter(isbn=clean_isbn).first()
+            if book_isbn:
+                return book_isbn.book
                 
-        return None
+            # Try case-insensitive match
+            book_isbn = BookISBN.objects.filter(isbn__iexact=clean_isbn).first()
+            if book_isbn:
+                return book_isbn.book
+                
+            # Try to find similar ISBNs (e.g., conversion between ISBN-10 and ISBN-13)
+            # This is a simplified approach - a proper ISBN-10 to ISBN-13 conversion would be better
+            if len(clean_isbn) == 10:
+                # If it's an ISBN-10, look for ISBN-13 with same ending
+                possible_isbn13s = BookISBN.objects.filter(
+                    isbn__endswith=clean_isbn,
+                    type="ISBN-13"
+                )
+                if possible_isbn13s.exists():
+                    return possible_isbn13s.first().book
+            elif len(clean_isbn) == 13 and clean_isbn.startswith('978'):
+                # If it's an ISBN-13, look for ISBN-10 with same ending minus the prefix
+                possible_isbn10s = BookISBN.objects.filter(
+                    isbn__endswith=clean_isbn[3:],
+                    type="ISBN-10"
+                )
+                if possible_isbn10s.exists():
+                    return possible_isbn10s.first().book
+                    
+            return None
 
     def enrich_book_data(self, book: Book, enrichment_service) -> Any:
         """

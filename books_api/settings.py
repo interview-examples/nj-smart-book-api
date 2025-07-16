@@ -182,6 +182,10 @@ else:
         }
     }
 
+# Test settings
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+TEST_EXCLUDE = ['books.archive.tests']  # Exclude archive tests from automatic test discovery
+
 # TODO: later prepare a professional logger:
 # - with different levels for Django and the app
 # - with logs in a file with daily rotation

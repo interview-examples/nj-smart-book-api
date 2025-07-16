@@ -62,14 +62,14 @@ class BookViewSet(viewsets.ModelViewSet):
         if search:
             return Book.objects.filter(
                 Q(title__icontains=search) |
-                Q(author__icontains=search) |
+                Q(authors__name__icontains=search) |
                 Q(isbn__icontains=search)
-            ).order_by(*ordering)
+            ).order_by(*ordering).distinct()
 
         # Filter by author
         author = self.request.query_params.get('author', None)
         if author:
-            return Book.objects.filter(author__icontains=author).order_by(*ordering)
+            return Book.objects.filter(authors__name__icontains=author).order_by(*ordering).distinct()
 
         # Filter by publication year
         year = self.request.query_params.get('year', None)

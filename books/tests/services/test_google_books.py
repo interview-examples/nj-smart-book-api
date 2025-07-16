@@ -252,23 +252,23 @@ class GoogleBooksServiceTestCase(BaseAPIServiceTestCase):
     
     def test_error_handling_http_error(self):
         """Test handling of HTTP errors."""
-        # Правильная настройка мока для HTTPError
+        # Correctly configure mock for HTTPError
         mock_response = mock.Mock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
-        # Добавляем атрибут response к мок-объекту, который будет возвращен
+        # Add a response attribute to the mock object that will be returned
         mock_response.raise_for_status.side_effect.response = mock.Mock()
         mock_response.raise_for_status.side_effect.response.status_code = 404
         
         with mock.patch('requests.get', return_value=mock_response):
-            # Проверяем что метод, вызывающий _make_request, обрабатывает ошибку
+            # Verify that the method calling _make_request handles the error
             result = self.service.get_book_data(self.test_isbn)
             self.assertIsNone(result)
     
     def test_error_handling_timeout(self):
         """Test handling of timeout errors."""
-        # Патчим requests.get, чтобы вызывать исключение Timeout
+        # Patch requests.get to raise a Timeout exception
         with mock.patch('requests.get', side_effect=requests.exceptions.Timeout("Connection timed out")):
-            # В get_book_data должна перехватываться ошибка и возвращаться None
+            # get_book_data should catch the error and return None
             result = self.service.get_book_data(self.test_isbn)
             self.assertIsNone(result)
     
@@ -279,80 +279,80 @@ class GoogleBooksServiceTestCase(BaseAPIServiceTestCase):
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
         
         with mock.patch('requests.get', return_value=mock_response):
-            # В get_book_data должна перехватываться ошибка и возвращаться None
+            # get_book_data should catch the error and return None
             result = self.service.get_book_data(self.test_isbn)
             self.assertIsNone(result)
 
     def test_cache_timeout_zero(self):
         """Test that cache can be disabled."""
-        # Очистим кэш перед тестом
+        # Clear cache before test
         cache.clear()
         
-        # Мок для ответа API
+        # Mock API response
         mock_response = {"items": [{"volumeInfo": {"title": "Test Book"}}]}
         
-        # Патчим cache.set чтобы предотвратить кэширование любых значений
+        # Patch cache.set to prevent caching any values
         with mock.patch('django.core.cache.cache.set') as mock_cache_set:
-            # Патчим requests.get для мониторинга вызовов к API
+            # Patch requests.get to monitor API calls
             with mock.patch('requests.get') as mock_get:
-                # Настраиваем мок для requests
+                # Configure mock for requests
                 mock_response_obj = mock.Mock()
                 mock_response_obj.raise_for_status.return_value = None
                 mock_response_obj.json.return_value = mock_response
                 mock_get.return_value = mock_response_obj
                 
-                # Создаем новый экземпляр сервиса для каждого теста
+                # Create a new service instance for each test
                 service = GoogleBooksService()
                 
-                # Первый вызов
+                # First call
                 result1 = service.get_book_data(self.test_isbn)
                 self.assertEqual(mock_get.call_count, 1)
                 
-                # Сбрасываем счетчики
+                # Reset counters
                 mock_get.reset_mock()
                 
-                # Проверяем что была попытка кэширования
+                # Verify that caching was attempted
                 self.assertTrue(mock_cache_set.called, 
-                               "Функция cache.set должна быть вызвана для первого запроса")
+                               "The cache.set function should be called for the first request")
                 mock_cache_set.reset_mock()
                 
-                # Второй вызов - без кэша
+                # Second call - without cache
                 result2 = service.get_book_data(self.test_isbn)
                 
-                # Должен быть сделан повторный запрос, поскольку кэш отключен
+                # A repeat request should be made since cache is disabled
                 self.assertEqual(mock_get.call_count, 1,
-                               "Второй вызов должен вызвать requests.get, так как кэш отключен")
+                               "The second call should invoke requests.get since cache is disabled")
                 
-                # Проверяем результаты
+                # Check results
                 self.assertEqual(result1.get('title'), result2.get('title'))
     
     def test_api_key_usage(self):
         """Test that API key is used when configured."""
         test_api_key = "test_api_key"
         
-        # Сохраняем оригинальный ключ
+        # Save original key
         original_key = self.service.api_key
         
         try:
-            # Устанавливаем тестовый ключ
+            # Set test key
             self.service.api_key = test_api_key
             
-            # Патчим метод _make_request для проверки параметров
+            # Patch _make_request method to check parameters
             with mock.patch.object(self.service, '_make_request', wraps=self.service._make_request) as spy:
-                # Патчим requests.get, чтобы избежать реальных запросов
+                # Patch requests.get to avoid actual requests
                 mock_response = mock.Mock()
                 mock_response.raise_for_status.return_value = None
                 mock_response.json.return_value = self.google_books_data
                 
                 with mock.patch('requests.get', return_value=mock_response):
-                    # Вызываем метод
+                    # Call the method
                     self.service.get_book_data(self.test_isbn)
                 
-                # Проверяем что API ключ был передан в параметрах
+                # Verify that the API key was passed in the parameters
                 spy.assert_called_once()
                 params = spy.call_args[0][1]
                 self.assertIn('key', params)
                 self.assertEqual(params['key'], test_api_key)
         finally:
-            # Восстанавливаем исходный ключ
+            # Restore the original key
             self.service.api_key = original_key

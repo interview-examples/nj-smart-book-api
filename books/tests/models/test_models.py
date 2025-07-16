@@ -34,8 +34,8 @@ class BookModelTests(TestCase):
         """Test the string representation of the model."""
         book = Book.objects.create(**self.book_data)
         book.authors.add(self.author)
-        # String representation should use the first author's name
-        expected_string = f"{self.book_data['title']} - {self.author.name}"
+        # String representation should match the implementation in the Book model
+        expected_string = f"{self.book_data['title']} (ID: {book.id})"
         self.assertEqual(str(book), expected_string)
 
     def test_isbn_validation(self):

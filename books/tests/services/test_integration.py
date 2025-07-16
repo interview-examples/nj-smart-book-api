@@ -70,7 +70,7 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
             isbn=self.test_isbn,
             title="Test Book Google",
             subtitle="A Test Book",
-            authors=["Test Author 1", "Test Author 2"],  # Обновляем для использования списка авторов
+            authors=["Test Author 1", "Test Author 2"],  # Update to use a list of authors
             publisher="Test Publisher",
             published_date="2021",
             description="Google Description",
@@ -105,7 +105,7 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
         self.open_library_enrichment_data = BookEnrichmentData(
             isbn=self.test_isbn,
             title="Test Book Open Library",
-            authors=["Another Author 1", "Another Author 2"],  # Обновляем для использования списка авторов
+            authors=["Another Author 1", "Another Author 2"],  # Update to use a list of authors
             publisher="Another Publisher",
             published_date="2022",
             description="Open Library Description",
@@ -165,8 +165,8 @@ class EnrichmentIntegrationTestCase(IntegrationTestCase):
         """Test enhanced enrichment service with bestseller data."""
         result = self.enhanced_enrichment_service.get_bestsellers(list_name="hardcover-fiction", limit=10)
         self.assertIsInstance(result, list)
-        # Учитываем, что список может быть пустым из-за отсутствия API ключа
-        # Поэтому не проверяем количество вызовов
+        # Consider that the list may be empty due to the lack of API key
+        # Therefore, we do not check the number of calls
         # self.nytimes_service.get_bestsellers.assert_called_once()
 
     def test_search_aggregation(self):
@@ -174,11 +174,11 @@ class EnrichmentIntegrationTestCase(IntegrationTestCase):
         query = "test query"
         results = self.enrichment_service.search_books(query=query, limit=10)
         self.assertIsInstance(results, list)
-        # Учитываем, что результаты могут быть пустыми или отличаться
+        # Consider that the results may be empty or different
 
         # Verify mocks - checking if either service was called with the query
-        self.google_service.search_books.assert_called_once_with(query=query, title="", author="", isbn="", limit=10)
-        self.open_library_service.search_books.assert_called_once_with(query=query, title="", author="", isbn="", limit=9)
+        self.google_service.search_books.assert_called_once_with(query=query, title="", authors=None, isbn="", limit=10)
+        self.open_library_service.search_books.assert_called_once_with(query=query, title="", authors=None, isbn="", limit=9)
 
     def test_multi_isbn_support(self):
         """Test enrichment with multiple ISBNs for the same book."""
@@ -217,7 +217,7 @@ class LegacyAdapterIntegrationTestCase(IntegrationTestCase):
 
     def setUp(self):
         super().setUp()
-        # Используем текущий сервис вместо устаревшего адаптера
+        # Use current service instead of the legacy adapter
         self.enrichment_service = BookEnrichmentService(
             google_books_service=self.google_service,
             open_library_service=self.open_library_service,
@@ -225,30 +225,30 @@ class LegacyAdapterIntegrationTestCase(IntegrationTestCase):
         )
 
     def test_legacy_get_book_data_flow(self):
-        """Тестирование потока получения данных о книге с использованием текущего сервиса."""
-        # Используем текущий сервис вместо устаревшего адаптера
+        """Testing the book data retrieval flow using current service."""
+        # Use current service instead of the legacy adapter
         result = self.enrichment_service.enrich_book_data(self.test_isbn)
         self.assertIsNotNone(result)
         self.assertEqual(result.isbn, self.test_isbn)
 
     def test_legacy_get_book_data_with_review_flow(self):
-        """Тестирование потока получения данных о книге с рецензией с использованием текущего сервиса."""
-        # Используем текущий сервис вместо устаревшего адаптера
+        """Testing the book data with review retrieval flow using current service."""
+        # Use current service instead of the legacy adapter
         result = self.enrichment_service.enrich_book_data(self.test_isbn)
         self.assertIsNotNone(result)
         self.assertEqual(result.isbn, self.test_isbn)
 
     def test_legacy_search_books_flow(self):
-        """Тестирование потока поиска книг с использованием текущего сервиса."""
+        """Testing the books search flow using current service."""
         query = "Harry Potter"
-        # Используем текущий сервис вместо устаревшего адаптера
-        # Предполагаем, что у BookEnrichmentService есть метод search_books, если нет, нужно будет адаптировать
+        # Use current service instead of the legacy adapter
+        # Assuming that BookEnrichmentService has a search_books method, if not, adaptation will be needed
         results = getattr(self.enrichment_service, 'search_books', lambda q: []) (query)
         self.assertIsInstance(results, list)
 
     def test_legacy_get_bestsellers_flow(self):
-        """Тестирование потока получения бестселлеров с использованием текущего сервиса."""
-        # Используем текущий сервис вместо устаревшего адаптера
-        # Предполагаем, что у BookEnrichmentService есть метод get_bestsellers, если нет, нужно будет адаптировать
+        """Testing the bestsellers retrieval flow using current service."""
+        # Use current service instead of the legacy adapter
+        # Assuming that BookEnrichmentService has a get_bestsellers method, if not, adaptation will be needed
         bestsellers = getattr(self.enrichment_service, 'get_bestsellers', lambda: []) ()
         self.assertIsInstance(bestsellers, list)

@@ -91,8 +91,9 @@ class Book(models.Model):
     published_date = models.DateField()
     authors = models.ManyToManyField('Author', related_name='books')
 
-    def __str__(self) -> str:
-        return f"{self.title} - {', '.join(author.name for author in self.authors.all())}"
+    def __str__(self):
+        # Avoid recursion by not accessing related objects at all
+        return f"{self.title} (ID: {self.id})"
     
     def save(self, *args, **kwargs) -> None:
         """Override save method to run validation before saving."""
