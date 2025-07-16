@@ -34,7 +34,7 @@ class BookISBNModelTestCase(TestCase):
             isbn=self.isbn_13,
             published_date="2023-01-01"
         )
-        # Создаем автора и связываем с книгой через отношение many-to-many
+        # Create an author and link to book through many-to-many relationship
         self.author = Author.objects.create(name="Test Author")
         self.book.authors.add(self.author)
         # Do not create BookISBN here to avoid duplication in tests

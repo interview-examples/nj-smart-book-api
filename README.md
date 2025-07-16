@@ -5,15 +5,29 @@ Smart Books API is a comprehensive RESTful API for managing books, built with Dj
 
 ## Features
 - **Complete CRUD Operations**: Create, read, update, and delete books
-- **Data Enrichment**: Automatically enrich book data from external sources:
-  - Google Books API: Book details, cover images, and categories
-  - Open Library API: Additional book metadata
-  - NY Times API: Book reviews and bestseller lists
-- **Caching System**: Efficient caching of external API responses to minimize network calls
+- **Hybrid Data Enrichment**: 
+  - Primary source: Google Books API
+  - Fallback to Open Library if data is incomplete
+  - Additional metadata from NY Times when available
+  - Automatic merging of data from multiple sources for maximum completeness
+- **Caching System**: Efficient caching of external API responses
 - **Search Functionality**: Search books by title, author, or ISBN
 - **Pagination**: Paginated results for better performance with large datasets
 - **Swagger Documentation**: Interactive API documentation
 - **Docker Integration**: Easy deployment with Docker and Docker Compose
+- **CI/CD Pipeline**: Automated testing and deployment with GitHub Actions
+
+## CI/CD Pipeline
+The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automates:
+- **Code Quality**: Linting with flake8
+- **Testing**: Running all tests with coverage reporting
+- **Docker Build**: Building and pushing Docker images on successful tests
+- **Deployment**: Automatic deployment to staging/production environments (configured via repository secrets)
+
+The pipeline runs on:
+- Push to `dev` and `master` branches
+- Pull requests to `master`
+- Manual workflow dispatch
 
 ## Architecture
 The project follows a clean architecture pattern with separation of concerns:
@@ -74,8 +88,8 @@ docker-compose up --build
 - `GET /api/v1/stats/`: Get statistics about books in the database
 
 ## Documentation
-- Swagger UI: `/api/v1/docs/`
-- OpenAPI Schema: `/api/v1/schema/`
+- Swagger UI: [/api/v1/docs/](http://localhost:8000/api/v1/docs/)
+- OpenAPI Schema: [/api/v1/schema/](http://localhost:8000/api/v1/schema/)
 
 ## Running Tests
 To run the test suite:
@@ -96,43 +110,50 @@ The API implements a caching system to minimize calls to external APIs:
 - Cache keys based on ISBN and query parameters
 
 ## External APIs Integration
-The API integrates with the following external services:
+The API implements a smart hybrid approach to data enrichment, combining multiple sources for maximum data completeness:
 
-### Google Books API
-- Book details (title, author, description)
-- Cover images
-- Categories and page count
-- Preview links
+### Data Enrichment Strategy
+1. **Primary Source - Google Books**:
+   - First attempt to fetch complete book data
+   - Includes high-quality metadata and cover images
 
-### Open Library API
-- Additional book metadata
-- Alternative cover images
-- Publication information
+2. **Fallback to Open Library**:
+   - If Google Books data is incomplete or unavailable
+   - Provides alternative metadata and cover images
+   - Often contains additional publication details
 
-### NY Times API
-- Book reviews
-- Bestseller lists
+3. **Supplemental Data from NY Times**:
+   - Adds professional book reviews
+   - Includes bestseller list information
+   - Provides additional credibility indicators
 
-## Enriched Data Structure
-When retrieving a book with enriched data (either via `GET /api/v1/books/{id}/` or `GET /api/v1/books/isbn/{isbn}/`), the response includes an `enriched_data` object with the following fields:
+The system automatically merges data from all available sources, prioritizing the most complete and reliable information for each field.
 
-- `external_title`: Book title from external source
-- `external_subtitle`: Book subtitle (if available)
-- `external_authors`: List of authors from external source
-- `external_description`: Book description (may be more comprehensive than internal description)
-- `publisher`: Publisher name
-- `publication_year`: Year of publication
-- `page_count`: Number of pages
-- `language`: Language code (e.g., 'en', 'fr', 'ru')
-- `categories`: List of book categories/genres
-- `thumbnail`: URL to book cover thumbnail
-- `preview_link`: URL to book preview (if available)
-- `rating`: Average rating (0-5 scale)
-- `reviews_count`: Number of reviews
-- `ny_times_review`: NY Times review snippet (if available)
-- `data_source`: Source of the enriched data (e.g., 'Google Books', 'Open Library')
+### Enriched Data Structure
+When retrieving a book with enriched data, the response includes combined information from all available sources:
 
-Note that some fields may be `null` if the data is not available from external sources.
+- **Basic Information**:
+  - `title` (from Google Books or Open Library)
+  - `authors` (combined from all sources)
+  - `description` (longest available description)
+  - `published_date` (most specific date available)
+
+- **Extended Metadata**:
+  - `publisher` (from primary source)
+  - `page_count` (highest available)
+  - `categories` (combined from all sources)
+  - `language` (preferred from Google Books, fallback to Open Library)
+
+- **Media & Links**:
+  - `cover_url` (highest resolution available)
+  - `preview_link` (when available)
+  - `reviews` (from NY Times when available)
+
+- **Source Information**:
+  - `data_sources`: List of sources used for enrichment
+  - `enrichment_status`: Indicates which sources contributed data
+
+This hybrid approach ensures the most complete and accurate book information possible, automatically handling cases where data might be missing from any single source.
 
 ## ISBN Support
 The API fully supports both ISBN-10 and ISBN-13 formats:

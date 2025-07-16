@@ -276,7 +276,7 @@ class OpenLibraryService(BookDataService):
                 if author_name:
                     authors.append(author_name)
 
-        # Если не нашли ни одного автора, добавим пустой список
+        # If no authors found, use empty list
         if not authors:
             authors = []
 

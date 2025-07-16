@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BookEnrichmentData:
-    """Структура для обогащенных данных о книге."""
     isbn: str
     title: Optional[str] = None
     author: Optional[str] = None
@@ -31,37 +30,26 @@ class BookEnrichmentData:
     industryIdentifiers: Optional[List[Dict[str, str]]] = None
 
 def cached_api_call(cache_timeout: int = 3600):
-    """
-    Декоратор для кэширования API-вызовов.
-    Генерирует безопасные ключи кэша, совместимые с Memcached.
-    """
     sentinel = object()
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Создаем список аргументов для включения в ключ кэша
             arg_dict = {}
             
-            # Если первый аргумент - это self или cls, пропускаем его
             if args and hasattr(args[0], '__class__'):
                 method_args = args[1:]
             else:
                 method_args = args
             
-            # Добавляем позиционные аргументы
             for i, arg in enumerate(method_args):
                 arg_dict[f'arg_{i}'] = str(arg)
             
-            # Добавляем именованные аргументы
             for key, value in sorted(kwargs.items()):
                 arg_dict[key] = str(value)
                 
-            # Создаем основу ключа с именем функции
             base_key = f"{func.__module__}.{func.__qualname__}"
             
-            # Если есть аргументы, создаем хеш из их JSON-представления
             if arg_dict:
-                # Преобразуем словарь аргументов в JSON и хешируем
                 args_json = json.dumps(arg_dict, sort_keys=True)
                 args_hash = hashlib.md5(args_json.encode()).hexdigest()
                 cache_key = f"{base_key}:{args_hash}"
@@ -86,33 +74,28 @@ def cached_api_call(cache_timeout: int = 3600):
     return decorator
 
 class BaseAPIService(ABC):
-    """Базовый абстрактный класс для всех внешних API-сервисов."""
+    """Base abstract class for all external API-services."""
     @abstractmethod
     def _make_request(self, url: str, params: Dict[str, Any], error_msg: str, default_return: Any = None) -> Any:
-        """Выполняет HTTP-запрос с обработкой ошибок и логированием."""
         pass
 
 class BookDataService(BaseAPIService):
-    """Абстрактный класс для API-сервисов, предоставляющих данные о книгах."""
+    """Abstract class for API-services, that provide books data."""
     @abstractmethod
     def get_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
-        """Получение данных о книге по ISBN."""
         pass
 
     @abstractmethod
     def search_books(self, query: str = "", title: str = "", author: str = "", isbn: str = "", limit: int = 10) -> List[BookEnrichmentData]:
-        """Поиск книг по запросу."""
         pass
 
 class ReviewService(BaseAPIService):
-    """Абстрактный класс для API-сервисов, предоставляющих обзоры книг."""
+    """Abstract class for API-services, that provide books reviews."""
     @abstractmethod
     def get_book_review(self, isbn: str) -> Optional[str]:
-        """Получение обзора книги по ISBN."""
         pass
 
 class GoogleBooksService(BookDataService):
-    """Сервис для работы с Google Books API."""
     BASE_URL = "https://www.googleapis.com/books/v1"
     CACHE_TIMEOUT = getattr(settings, 'GOOGLE_BOOKS_CACHE_TIMEOUT', 14400)
 
@@ -147,14 +130,14 @@ class GoogleBooksService(BookDataService):
     @cached_api_call(cache_timeout=CACHE_TIMEOUT)
     def search_books(self, query: str = "", title: str = "", author: str = "", isbn: str = "") -> List[BookEnrichmentData]:
         """
-        Поиск книг по названию, автору или ISBN через Google Books API.
+         Search for books by title, author, or ISBN using the Google Books API.
         Args:
-            query: Общий поисковый запрос (для обратной совместимости).
-            title: Название книги.
-            author: Автор книги.
-            isbn: ISBN книги.
+            query: General search query (for backward compatibility)
+            title: Book title
+            author: Book author
+            isbn: ISBN
         Returns:
-            List[BookEnrichmentData]: Список обогащенных данных о книгах.
+            List[BookEnrichmentData]: List of enriched book data
         """
         query_parts = []
         if isbn:
@@ -220,7 +203,6 @@ class GoogleBooksService(BookDataService):
             return default_return
 
 class OpenLibraryService(BookDataService):
-    """Сервис для работы с Open Library API."""
     BASE_URL = "https://openlibrary.org"
     CACHE_TIMEOUT = getattr(settings, 'OPEN_LIBRARY_CACHE_TIMEOUT', 14400)
 
@@ -260,14 +242,14 @@ class OpenLibraryService(BookDataService):
     @cached_api_call(cache_timeout=CACHE_TIMEOUT)
     def search_books(self, query: str = "", title: str = "", author: str = "", isbn: str = "") -> List[BookEnrichmentData]:
         """
-        Поиск книг по названию, автору или ISBN через Open Library API.
+        Search for books by title, author, or ISBN via the Open Library API
         Args:
-            query: Общий поисковый запрос (для обратной совместимости).
-            title: Название книги.
-            author: Автор книги.
-            isbn: ISBN книги.
+            query: General search query (for backward compatibility)
+            title: Book title
+            author: Book author
+            isbn: ISBN
         Returns:
-            List[BookEnrichmentData]: Список обогащенных данных о книгах.
+            List[BookEnrichmentData]: List of enriched book data
         """
         if isbn:
             params = {"bibkeys": f"ISBN:{isbn}", "format": "json", "jscmd": "data"}
@@ -305,12 +287,12 @@ class OpenLibraryService(BookDataService):
 
     def _parse_book_data(self, book_data: Dict[str, Any], isbn: str = "") -> Optional[BookEnrichmentData]:
         """
-        Парсинг данных о книге из ответа Open Library API.
+        Parsing book data from the Open Library API response.
         Args:
-            book_data: Данные о книге из API.
-            isbn: ISBN книги (если известен).
+            book_data: Book data from the API.
+            isbn: Book ISBN (if known).
         Returns:
-            Optional[BookEnrichmentData]: Обогащенные данные о книге или None, если данные некорректны.
+            Optional[BookEnrichmentData]: Enriched book data or None if the data is incorrect.
         """
         if not book_data or 'title' not in book_data:
             return None
@@ -368,7 +350,6 @@ class OpenLibraryService(BookDataService):
             return default_return
 
 class NYTimesService(ReviewService):
-    """Сервис для работы с NY Times Books API."""
     BASE_URL = "https://api.nytimes.com/svc/books/v3"
 
     def __init__(self):
@@ -395,15 +376,12 @@ class NYTimesService(ReviewService):
         return data['results'][0].get('summary')
 
 class BookEnrichmentService:
-    """Главный сервис для обогащения данных о книгах."""
     def __init__(self, google_books_service=None, open_library_service=None, ny_times_service=None):
         """
-        Инициализация сервиса с внедрением зависимостей.
-        
         Args:
-            google_books_service: Сервис Google Books API. Если None, создается экземпляр по умолчанию.
-            open_library_service: Сервис Open Library API. Если None, создается экземпляр по умолчанию.
-            ny_times_service: Сервис NY Times API. Если None, создается экземпляр по умолчанию.
+            google_books_service: Google Books API service. If None, a default instance is created.
+            open_library_service: Open Library API service. If None, a default instance is created.
+            ny_times_service: NY Times API service. If None, a default instance is created.
         """
         self.google_books = google_books_service or GoogleBooksService()
         self.open_library = open_library_service or OpenLibraryService()
@@ -411,13 +389,6 @@ class BookEnrichmentService:
 
     @cached_api_call(cache_timeout=14400)
     def enrich_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
-        """
-        Получение обогащенных данных о книге по ISBN из всех доступных источников.
-        Args:
-            isbn: ISBN книги.
-        Returns:
-            Optional[BookEnrichmentData]: Обогащенные данные о книге или None, если данные не найдены.
-        """
         enriched_data = None
         for source in [self.google_books, self.open_library]:
             try:
@@ -430,7 +401,6 @@ class BookEnrichmentService:
         
         if enriched_data:
             try:
-                # Добавляем рецензию от NY Times
                 ny_times_review = self.ny_times.get_book_review(isbn)
                 if ny_times_review:
                     enriched_data.ny_times_review = ny_times_review
@@ -440,14 +410,6 @@ class BookEnrichmentService:
         return enriched_data
 
     def search_books(self, query: str = "", limit: int = 10) -> List[BookEnrichmentData]:
-        """
-        Поиск книг по названию, автору или ISBN из всех доступных источников.
-        Args:
-            query: Общий поисковый запрос.
-            limit: Максимальное количество результатов.
-        Returns:
-            List[BookEnrichmentData]: Список обогащенных данных о книгах.
-        """
         results = []
         for source in [self.google_books, self.open_library]:
             try:

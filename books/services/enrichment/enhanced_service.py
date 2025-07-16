@@ -155,8 +155,8 @@ class EnhancedBookEnrichmentService:
         self,
         query: str = "",
         title: str = "",
-        author: str = "",  # Сохраняем для обратной совместимости
-        authors: List[str] = None,  # Новый параметр authors
+        author: str = "",
+        authors: List[str] = None,
         isbn: str = "",
         limit: int = 10
     ) -> List[BookEnrichmentData]:
@@ -199,7 +199,7 @@ class EnhancedBookEnrichmentService:
                 adapter_results = adapter.search_books(
                     query=query,
                     title=title,
-                    author=author,  # Оставляем для адаптеров, которые еще не обновлены
+                    author=author,
                     authors=authors,
                     isbn=isbn,
                     limit=search_limit
