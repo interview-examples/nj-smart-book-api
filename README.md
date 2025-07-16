@@ -96,6 +96,7 @@ To run the test suite:
 ```bash
 docker-compose exec web python manage.py test
 ```
+![img.png](img.png)
 
 For specific test modules:
 ```bash
