@@ -98,7 +98,16 @@ WSGI_APPLICATION = 'books_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-if DOCKER_ENV:
+# Check if DATABASE_URL is provided (for CI/CD or custom deployments)
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    # Parse DATABASE_URL for CI/CD and custom deployments
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
+    }
+elif DOCKER_ENV:
     # Database configuration for Docker with PostgreSQL
     DATABASES = {
         'default': {
