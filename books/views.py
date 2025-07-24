@@ -1,38 +1,27 @@
-from rest_framework import viewsets, status, generics
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
-from django.db.models import Q
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from drf_spectacular.types import OpenApiTypes
-from .models import Book
-from .serializers import (
-    BookSerializer,
-    EnrichedBookSerializer,
-    BookSearchSerializer,
-    BookCreateUpdateSerializer
-)
-from .services.book_service import BookService
-from .services.enrichment_service import EnrichmentService
-from .services.book_stats_service import BookStatsService
+from django.db.models import Q, Count
 
-
-class BookPagination(PageNumberPagination):
-    """Custom pagination for books"""
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+from books.models import Book, Author
+from books.serializers import BookSerializer, EnrichedBookSerializer, BookCreateUpdateSerializer
+from books.services.book_service import BookService
+from books.services.enrichment_service import EnrichmentService
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    """ViewSet for CRUD operations with books."""
-    queryset = Book.objects.all().order_by('title', 'published_date')
-    pagination_class = BookPagination
-    service = BookService()
+    """Simple ViewSet for Book operations."""
+    
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.service = BookService()
 
-    def get_serializer_class(self) -> type:
-        """Select serializer based on the action"""
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action."""
         if self.action in ['create', 'update', 'partial_update']:
             return BookCreateUpdateSerializer
         elif self.action == 'retrieve':
@@ -71,189 +60,145 @@ class BookViewSet(viewsets.ModelViewSet):
         
         return queryset
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='search',
-                description='Search by title, author or ISBN',
-                required=False,
-                type=OpenApiTypes.STR,
-            ),
-            OpenApiParameter(
-                name='author',
-                description='Filter by author',
-                required=False,
-                type=OpenApiTypes.STR,
-            ),
-            OpenApiParameter(
-                name='year',
-                description='Filter by publication year',
-                required=False,
-                type=OpenApiTypes.INT,
-            ),
-        ],
-        responses={200: BookSerializer(many=True)},
-        description="List books with search and filtering capabilities"
-    )
     def list(self, request: Request, *args, **kwargs) -> Response:
         """List books with search and filtering capabilities"""
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        responses={200: EnrichedBookSerializer},
-        description="Get a book with enriched data from external sources"
-    )
     def retrieve(self, request: Request, *args, **kwargs) -> Response:
         """Get a book with enriched data from external sources"""
-        book = self.service.get_book_by_id(int(kwargs.get('pk')))
-        if not book:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = self.get_serializer(book)
-        return Response(serializer.data)
+        try:
+            book = self.service.get_book_by_id(int(kwargs.get('pk')))
+            if not book:
+                return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+            serializer = self.get_serializer(book)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @extend_schema(
-        request=BookCreateUpdateSerializer,
-        responses={201: BookSerializer},
-        description="Create a new book"
-    )
     def create(self, request, *args, **kwargs):
         """Create a new book"""
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        book = self.service.create_book(serializer.validated_data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(
-        request=BookCreateUpdateSerializer,
-        responses={200: BookSerializer},
-        description="Update an existing book"
-    )
     def update(self, request, *args, **kwargs):
-        """Update an existing book"""
-        book = self.service.update_book(int(kwargs.get('pk')), request.data)
-        if not book:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = self.get_serializer(book)
-        return Response(serializer.data)
+        """Update a book"""
+        try:
+            book = self.service.get_book_by_id(int(kwargs.get('pk')))
+            if not book:
+                return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+            serializer = self.get_serializer(book, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(
-        responses={204: None},
-        description="Delete a book"
-    )
     def destroy(self, request, *args, **kwargs):
         """Delete a book"""
-        success = self.service.delete_book(int(kwargs.get('pk')))
-        if not success:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            success = self.service.delete_book(int(kwargs.get('pk')))
+            if not success:
+                return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='q',
-                description='Search query for title, author or ISBN',
-                required=False,
-                type=OpenApiTypes.STR,
-            ),
-        ],
-        responses={200: BookSerializer(many=True)},
-        description="Search books by title, author or ISBN"
-    )
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Search books by title, author or ISBN"""
-        query = self.request.query_params.get('q', '')
-        books = self.service.search_books(query)
-        page = self.paginate_queryset(books)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(books, many=True)
-        return Response(serializer.data)
+        """Search books by query"""
+        try:
+            query = request.query_params.get('q', '')
+            if not query:
+                return Response([])
+            
+            books = self.service.search_books(query)
+            page = self.paginate_queryset(books)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(books, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'], url_path='isbn/(?P<isbn>[^/.]+)')
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='isbn',
-                description='ISBN-10 or ISBN-13 of the book (with or without hyphens)',
-                required=True,
-                type=OpenApiTypes.STR,
-                location=OpenApiParameter.PATH,
-            ),
-        ],
-        responses={
-            200: EnrichedBookSerializer,
-            404: OpenApiTypes.OBJECT,
-        },
-        description="Get a book by its ISBN"
-    )
     def get_by_isbn(self, request, isbn=None):
-        """
-        Get a book by its ISBN-10 or ISBN-13.
-        Returns enriched book data with information from external sources.
-        """
-        book = self.service.get_book_by_isbn(isbn)
-        if not book:
-            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = EnrichedBookSerializer(book)
-        return Response(serializer.data)
+        """Get book by ISBN with enriched data"""
+        try:
+            book = self.service.get_book_by_isbn(isbn)
+            if not book:
+                return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+            serializer = EnrichedBookSerializer(book)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class EnrichmentViewSet(viewsets.ViewSet):
-    """ViewSet for enriching book data from external sources."""
+    """Simple ViewSet for book enrichment operations."""
     
-    service = EnrichmentService(BookService())
-    
-    def get_permissions(self):
-        pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.service = EnrichmentService()
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='isbn',
-                description='ISBN of the book to enrich',
-                required=True,
-                type=OpenApiTypes.STR,
-            ),
-        ],
-        responses={200: dict},
-        description="Enrich book data using ISBN from external sources"
-    )
     @action(detail=False, methods=['get'])
     def enrich_by_isbn(self, request):
-        """Enrich book data using ISBN from external sources"""
-        isbn = request.GET.get('isbn', '')
-        if not isbn:
-            return Response({'error': 'ISBN parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
-        enriched_data = self.service.enrich_book_by_isbn(isbn)
-        if not enriched_data:
-            return Response({'error': 'Failed to enrich book data'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(enriched_data)
+        """Enrich book data by ISBN"""
+        try:
+            isbn = request.query_params.get('isbn')
+            if not isbn:
+                return Response({'error': 'ISBN parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            enriched_data = self.service.enrich_book_by_isbn(isbn)
+            if not enriched_data:
+                return Response({'error': 'Failed to enrich book data'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'Book enriched successfully'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @extend_schema(
-        request=BookSearchSerializer,
-        responses={200: BookSearchSerializer},
-        description="Search for books in external sources"
-    )
     @action(detail=False, methods=['post'])
     def search_external(self, request):
-        """Search for books in external sources"""
-        query = request.data.get('query', '')
-        if not query:
-            return Response({'error': 'Query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
-        results = self.service.search_external(query)
-        return Response(results)
+        """Search for books in external APIs"""
+        try:
+            query = request.data.get('query')
+            if not query:
+                return Response({'error': 'Query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            results = self.service.search_external(query)
+            return Response(results)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class StatsView(generics.GenericAPIView):
-    """View for getting book statistics."""
-    service = BookStatsService()
 
-    @extend_schema(
-        responses={200: dict},
-        description="Get statistics about books in the database"
-    )
-    def get(self, request, *args, **kwargs):
-        """Get statistics about books in the database"""
-        stats = self.service.get_stats()
-        return Response(stats)
+class StatsView(viewsets.ViewSet):
+    """Simple ViewSet for book statistics."""
+
+    @action(detail=False, methods=['get'])
+    def get(self, request):
+        """Get book statistics"""
+        try:
+            from django.db.models import Count
+            
+            # Get top authors
+            top_authors = list(
+                Author.objects.annotate(
+                    book_count=Count('books')
+                ).filter(
+                    book_count__gt=0
+                ).order_by('-book_count')[:5].values('name', 'book_count')
+            )
+            
+            stats = {
+                'total_books': Book.objects.count(),
+                'total_authors': Book.objects.values('authors').distinct().count(),
+                'top_authors': top_authors,
+            }
+            return Response(stats)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
