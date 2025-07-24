@@ -7,13 +7,19 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, TypeVar, Generic
 
 # Defining a generic type for an API result
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class APIException(Exception):
     """Base exception for all API-related errors."""
 
-    def __init__(self, message: str, source: str = None, original_error: Exception = None, status_code: int = None):
+    def __init__(
+        self,
+        message: str,
+        source: str = None,
+        original_error: Exception = None,
+        status_code: int = None,
+    ):
         self.message = message
         self.source = source
         self.original_error = original_error
@@ -23,6 +29,7 @@ class APIException(Exception):
 
 class APITimeoutException(APIException):
     """Exception raised when an API request times out."""
+
     pass
 
 
@@ -30,7 +37,7 @@ class APIResponseException(APIException):
     """Exception raised when an API returns an error response."""
 
     def __init__(self, message: str, status_code: int = None, **kwargs):
-        kwargs['status_code'] = status_code
+        kwargs["status_code"] = status_code
         super().__init__(message, **kwargs)
 
 
@@ -38,11 +45,13 @@ class BaseAPIService(ABC):
     """Base abstract class for all external API services."""
 
     @abstractmethod
-    def _make_request(self,
-                     url: str,
-                     params: Dict[str, Any] = None,
-                     headers: Dict[str, str] = None,
-                     timeout: int = 10) -> Any:
+    def _make_request(
+        self,
+        url: str,
+        params: Dict[str, Any] = None,
+        headers: Dict[str, str] = None,
+        timeout: int = 10,
+    ) -> Any:
         """
         Execute an HTTP request with error handling and logging.
 
@@ -97,12 +106,14 @@ class BookDataService(BaseAPIService):
         pass
 
     @abstractmethod
-    def search_books(self,
-                    query: str = "",
-                    title: str = "",
-                    author: str = "",
-                    isbn: str = "",
-                    limit: int = 10) -> List[Dict[str, Any]]:
+    def search_books(
+        self,
+        query: str = "",
+        title: str = "",
+        author: str = "",
+        isbn: str = "",
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
         """
         Search for books by various criteria.
 

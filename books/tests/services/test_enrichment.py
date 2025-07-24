@@ -33,7 +33,7 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         self.service = BookEnrichmentService(
             google_books_service=self.google_books_service,
             open_library_service=self.open_library_service,
-            ny_times_service=self.ny_times_service
+            ny_times_service=self.ny_times_service,
         )
 
         # Test data
@@ -53,21 +53,13 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
                 "description": "Google Description",
                 "pageCount": 100,
                 "categories": ["Fiction"],
-                "imageLinks": {
-                    "thumbnail": "http://test.com/thumbnail.jpg"
-                },
+                "imageLinks": {"thumbnail": "http://test.com/thumbnail.jpg"},
                 "language": "en",
                 "industryIdentifiers": [
-                    {
-                        "type": "ISBN_13",
-                        "identifier": self.test_isbn
-                    },
-                    {
-                        "type": "ISBN_10",
-                        "identifier": self.test_isbn_alt
-                    }
-                ]
-            }
+                    {"type": "ISBN_13", "identifier": self.test_isbn},
+                    {"type": "ISBN_10", "identifier": self.test_isbn_alt},
+                ],
+            },
         }
 
         self.open_library_data = {
@@ -79,11 +71,9 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
                 "publish_date": "2021",
                 "number_of_pages": 100,
                 "subjects": ["Non-fiction"],
-                "cover": {
-                    "medium": "http://test.com/ol_thumbnail.jpg"
-                },
+                "cover": {"medium": "http://test.com/ol_thumbnail.jpg"},
                 "languages": [{"key": "/languages/eng"}],
-                "works": [{"key": "/works/OL12345W"}]
+                "works": [{"key": "/works/OL12345W"}],
             }
         }
 
@@ -101,16 +91,16 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
             language="en",
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn),
-                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt)
+                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt),
             ],
-            source="Google Books"
+            source="Google Books",
         )
 
         self.open_library_enrichment_data = BookEnrichmentData(
             isbn=self.test_isbn,
             title="Test Book",
             subtitle="A Test Book",
-            authors=["Test Author"],  
+            authors=["Test Author"],
             publisher="Test Publisher",
             published_date="2021",
             description="",
@@ -121,7 +111,7 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn)
             ],
-            source="Open Library"
+            source="Open Library",
         )
 
         self.nytimes_review = "This is a test review from NY Times."
@@ -130,7 +120,9 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         """Test enriching book data from a single source."""
         # Setup mock Google Books service to return data
         self.google_books_service.get_book_data.return_value = self.google_books_data
-        self.google_books_service.to_enrichment_data.return_value = self.google_enrichment_data
+        self.google_books_service.to_enrichment_data.return_value = (
+            self.google_enrichment_data
+        )
 
         # Setup mock Open Library service to return None (no data)
         self.open_library_service.get_book_data.return_value = None
@@ -156,11 +148,15 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         """Test enriching book data from multiple sources."""
         # Setup mock Google Books service to return data
         self.google_books_service.get_book_data.return_value = self.google_books_data
-        self.google_books_service.to_enrichment_data.return_value = self.google_enrichment_data
+        self.google_books_service.to_enrichment_data.return_value = (
+            self.google_enrichment_data
+        )
 
         # Setup mock Open Library service to return data
         self.open_library_service.get_book_data.return_value = self.open_library_data
-        self.open_library_service.to_enrichment_data.return_value = self.open_library_enrichment_data
+        self.open_library_service.to_enrichment_data.return_value = (
+            self.open_library_enrichment_data
+        )
 
         # Setup mock NY Times service
         self.ny_times_service.get_book_review.return_value = self.nytimes_review
@@ -208,13 +204,17 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         )
 
         # Setup to_enrichment_data mock
-        self.google_books_service.to_enrichment_data.return_value = self.google_enrichment_data
+        self.google_books_service.to_enrichment_data.return_value = (
+            self.google_enrichment_data
+        )
 
         # Setup Open Library to return data for first ISBN
         self.open_library_service.get_book_data.side_effect = lambda isbn: (
             self.open_library_data if isbn == self.test_isbn else None
         )
-        self.open_library_service.to_enrichment_data.return_value = self.open_library_enrichment_data
+        self.open_library_service.to_enrichment_data.return_value = (
+            self.open_library_enrichment_data
+        )
 
         # Setup mock NY Times service
         self.ny_times_service.get_book_review.return_value = self.nytimes_review
@@ -242,7 +242,9 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         """Test searching for books."""
         # Setup mock Google Books service to return search results
         self.google_books_service.search_books.return_value = [self.google_books_data]
-        self.google_books_service.to_enrichment_data.return_value = self.google_enrichment_data
+        self.google_books_service.to_enrichment_data.return_value = (
+            self.google_enrichment_data
+        )
 
         # Setup mock Open Library service to return empty results
         self.open_library_service.search_books.return_value = []
@@ -262,46 +264,47 @@ class BookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
     def test_caching(self):
         """Test that responses are properly cached."""
         cache.clear()
-        
+
         from books.services.models.data_models import BookEnrichmentData
+
         real_data = BookEnrichmentData(
             isbn=self.test_isbn,
             title="Test Book",
             authors=["Test Author"],
             published_date="2023-01-01",
-            source="Google Books"
+            source="Google Books",
         )
-        
+
         self.google_books_service.get_book_data.return_value = {"title": "Test Book"}
         self.google_books_service.to_enrichment_data.return_value = real_data
-        
+
         self.open_library_service.get_book_data.return_value = None
         self.ny_times_service.get_book_review.return_value = None
-        
+
         self.google_books_service.get_book_data.reset_mock()
         self.open_library_service.get_book_data.reset_mock()
         self.ny_times_service.get_book_review.reset_mock()
-        
+
         result1 = self.service.enrich_book_data(self.test_isbn)
-        
+
         self.assertEqual(self.google_books_service.get_book_data.call_count, 1)
-        
+
         self.google_books_service.get_book_data.reset_mock()
         self.open_library_service.get_book_data.reset_mock()
         self.ny_times_service.get_book_review.reset_mock()
-        
+
         result2 = self.service.enrich_book_data(self.test_isbn)
-        
+
         self.assertEqual(result1.title, result2.title)
         self.assertEqual(result1.authors, result2.authors)
-        
+
         self.assertEqual(self.google_books_service.get_book_data.call_count, 0)
         self.assertEqual(self.open_library_service.get_book_data.call_count, 0)
         self.assertEqual(self.ny_times_service.get_book_review.call_count, 0)
-        
+
         cache.clear()
         result3 = self.service.enrich_book_data(self.test_isbn)
-        
+
         self.assertEqual(self.google_books_service.get_book_data.call_count, 1)
 
 
@@ -320,7 +323,7 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         # Create service with mock adapters
         self.service = EnhancedBookEnrichmentService(
             adapters=[self.google_adapter, self.open_library_adapter],
-            review_adapter=self.review_adapter
+            review_adapter=self.review_adapter,
         )
 
         # Test data
@@ -343,16 +346,16 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
             language="en",
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn),
-                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt)
+                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt),
             ],
-            source="Google Books"
+            source="Google Books",
         )
 
         self.open_library_enrichment_data = BookEnrichmentData(
             isbn=self.test_isbn,
             title="Test Book",
             subtitle="A Test Book",
-            authors=["Test Author"],  
+            authors=["Test Author"],
             publisher="Test Publisher",
             published_date="2021",
             description="",
@@ -363,7 +366,7 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn)
             ],
-            source="Open Library"
+            source="Open Library",
         )
 
         self.nytimes_review = "This is a test review from NY Times."
@@ -372,7 +375,9 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         """Test enriching book data with adapters."""
         # Setup mock adapters
         self.google_adapter.get_book_data.return_value = self.google_enrichment_data
-        self.open_library_adapter.get_book_data.return_value = self.open_library_enrichment_data
+        self.open_library_adapter.get_book_data.return_value = (
+            self.open_library_enrichment_data
+        )
         self.review_adapter.get_book_review.return_value = self.nytimes_review
 
         # Call the method under test
@@ -425,7 +430,9 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
         """Test searching for books with adapters."""
         # Setup mock adapters
         self.google_adapter.search_books.return_value = [self.google_enrichment_data]
-        self.open_library_adapter.search_books.return_value = [self.open_library_enrichment_data]
+        self.open_library_adapter.search_books.return_value = [
+            self.open_library_enrichment_data
+        ]
 
         # Call the method under test
         results = self.service.search_books(query="test")
@@ -441,16 +448,22 @@ class EnhancedBookEnrichmentServiceTestCase(BaseAPIServiceTestCase):
     def test_get_bestsellers(self):
         """Test getting bestsellers."""
         # Setup mock review adapter
-        bestseller_data = {"books": [{
-            "rank": 1,
-            "weeks_on_list": 10,
-            "title": "Test Book",
-            "author": "Test Author",
-            "description": "Test Description",
-            "primary_isbn13": self.test_isbn
-        }]}
+        bestseller_data = {
+            "books": [
+                {
+                    "rank": 1,
+                    "weeks_on_list": 10,
+                    "title": "Test Book",
+                    "author": "Test Author",
+                    "description": "Test Description",
+                    "primary_isbn13": self.test_isbn,
+                }
+            ]
+        }
         self.review_adapter.get_bestsellers.return_value = bestseller_data
-        self.review_adapter.enrich_with_bestseller_data.return_value = self.google_enrichment_data
+        self.review_adapter.enrich_with_bestseller_data.return_value = (
+            self.google_enrichment_data
+        )
 
         # Setup first adapter to return data for enrichment
         self.google_adapter.get_book_data.return_value = self.google_enrichment_data

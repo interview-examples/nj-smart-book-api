@@ -11,7 +11,10 @@ from django.conf import settings
 from books.services.models.data_models import BookEnrichmentData, IndustryIdentifier
 from books.services.caching.decorators import cached_api_call
 from books.services.enrichment.adapters import (
-    BookDataAdapter, GoogleBooksAdapter, OpenLibraryAdapter, NYTimesReviewAdapter
+    BookDataAdapter,
+    GoogleBooksAdapter,
+    OpenLibraryAdapter,
+    NYTimesReviewAdapter,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +29,7 @@ class EnhancedBookEnrichmentService:
     def __init__(
         self,
         adapters: Optional[List[BookDataAdapter]] = None,
-        review_adapter: Optional[NYTimesReviewAdapter] = None
+        review_adapter: Optional[NYTimesReviewAdapter] = None,
     ):
         """
         Initialize the enrichment service with provided adapters or create default instances.
@@ -37,10 +40,7 @@ class EnhancedBookEnrichmentService:
         """
         # Initialize default adapters if none provided
         if adapters is None:
-            self.adapters = [
-                GoogleBooksAdapter(),
-                OpenLibraryAdapter()
-            ]
+            self.adapters = [GoogleBooksAdapter(), OpenLibraryAdapter()]
         else:
             self.adapters = adapters
 
@@ -48,9 +48,13 @@ class EnhancedBookEnrichmentService:
         self.review_adapter = review_adapter or NYTimesReviewAdapter()
 
         # Cache timeout in seconds
-        self.cache_timeout = getattr(settings, 'BOOK_ENRICHMENT_CACHE_TIMEOUT', 14400)  # 4 hours default
+        self.cache_timeout = getattr(
+            settings, "BOOK_ENRICHMENT_CACHE_TIMEOUT", 14400
+        )  # 4 hours default
 
-    @cached_api_call(cache_timeout=getattr(settings, 'BOOK_ENRICHMENT_CACHE_TIMEOUT', 14400))
+    @cached_api_call(
+        cache_timeout=getattr(settings, "BOOK_ENRICHMENT_CACHE_TIMEOUT", 14400)
+    )
     def enrich_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
         """
         Get enriched book data from all available sources for a single ISBN.
@@ -80,10 +84,15 @@ class EnhancedBookEnrichmentService:
                     else:
                         enriched_data = adapter_data
 
-                    logger.info(f"Retrieved book data for ISBN {isbn} from {adapter.__class__.__name__}")
+                    logger.info(
+                        f"Retrieved book data for ISBN {isbn} from {adapter.__class__.__name__}"
+                    )
 
             except Exception as e:
-                logger.error(f"Error retrieving book data from {adapter.__class__.__name__}: {str(e)}", exc_info=True)
+                logger.error(
+                    f"Error retrieving book data from {adapter.__class__.__name__}: {str(e)}",
+                    exc_info=True,
+                )
 
         # If we found book data, try to add a review
         if enriched_data:
@@ -93,13 +102,17 @@ class EnhancedBookEnrichmentService:
                     enriched_data.ny_times_review = review
                     logger.info(f"Added NY Times review for ISBN {isbn}")
             except Exception as e:
-                logger.error(f"Error retrieving NY Times review for ISBN {isbn}: {str(e)}")
+                logger.error(
+                    f"Error retrieving NY Times review for ISBN {isbn}: {str(e)}"
+                )
         else:
             logger.info(f"No book data found for ISBN {isbn} from any source")
 
         return enriched_data
 
-    def enrich_book_data_multi_isbn(self, isbns: List[str]) -> Optional[BookEnrichmentData]:
+    def enrich_book_data_multi_isbn(
+        self, isbns: List[str]
+    ) -> Optional[BookEnrichmentData]:
         """
         Try to enrich book data using multiple ISBNs, merging results if found.
         Useful for books with both ISBN-10 and ISBN-13 or other alternate identifiers.
@@ -137,11 +150,13 @@ class EnhancedBookEnrichmentService:
             # Make sure all ISBNs are properly stored in industry_identifiers
             for isbn in isbns:
                 # Determine ISBN type (ISBN_10 or ISBN_13)
-                isbn_type = "ISBN_13" if len(isbn.replace('-', '')) == 13 else "ISBN_10"
+                isbn_type = "ISBN_13" if len(isbn.replace("-", "")) == 13 else "ISBN_10"
 
                 # Check if this ISBN is already in industry_identifiers
-                if not any(identifier.type == isbn_type and identifier.identifier == isbn
-                           for identifier in enriched_data.industry_identifiers):
+                if not any(
+                    identifier.type == isbn_type and identifier.identifier == isbn
+                    for identifier in enriched_data.industry_identifiers
+                ):
                     # Add this ISBN to industry_identifiers
                     enriched_data.industry_identifiers.append(
                         IndustryIdentifier(type=isbn_type, identifier=isbn)
@@ -158,7 +173,7 @@ class EnhancedBookEnrichmentService:
         author: str = "",
         authors: List[str] = None,
         isbn: str = "",
-        limit: int = 10
+        limit: int = 10,
     ) -> List[BookEnrichmentData]:
         """
         Search for books across all available sources.
@@ -202,7 +217,7 @@ class EnhancedBookEnrichmentService:
                     author=author,
                     authors=authors,
                     isbn=isbn,
-                    limit=search_limit
+                    limit=search_limit,
                 )
 
                 for book in adapter_results:
@@ -219,11 +234,16 @@ class EnhancedBookEnrichmentService:
                         break
 
             except Exception as e:
-                logger.error(f"Error searching books in {adapter.__class__.__name__}: {str(e)}", exc_info=True)
+                logger.error(
+                    f"Error searching books in {adapter.__class__.__name__}: {str(e)}",
+                    exc_info=True,
+                )
 
         return results
 
-    def get_bestsellers(self, list_name: str = "hardcover-fiction", limit: int = 10) -> List[BookEnrichmentData]:
+    def get_bestsellers(
+        self, list_name: str = "hardcover-fiction", limit: int = 10
+    ) -> List[BookEnrichmentData]:
         """
         Get bestseller list from NY Times and enrich with book data.
 
@@ -237,17 +257,19 @@ class EnhancedBookEnrichmentService:
         try:
             # Get bestsellers from NY Times
             bestsellers = self.review_adapter.get_bestsellers(list_name)
-            if not bestsellers or 'books' not in bestsellers:
+            if not bestsellers or "books" not in bestsellers:
                 logger.info(f"No bestsellers found for list: {list_name}")
                 return []
 
             results = []
-            books = bestsellers.get('books', [])[:limit]
+            books = bestsellers.get("books", [])[:limit]
 
             # Enrich each bestseller with detailed book data
             for book in books:
                 # Get ISBNs from bestseller entry
-                primary_isbn = book.get('primary_isbn13') or book.get('primary_isbn10', '')
+                primary_isbn = book.get("primary_isbn13") or book.get(
+                    "primary_isbn10", ""
+                )
 
                 if primary_isbn:
                     # Try to get enriched data
@@ -255,18 +277,22 @@ class EnhancedBookEnrichmentService:
 
                     if enriched_data:
                         # Add bestseller rank
-                        enriched_data = self.review_adapter.enrich_with_bestseller_data(enriched_data, book)
+                        enriched_data = self.review_adapter.enrich_with_bestseller_data(
+                            enriched_data, book
+                        )
                         results.append(enriched_data)
                     else:
                         # Create minimal data from bestseller info
                         minimal_data = BookEnrichmentData(
                             isbn=primary_isbn,
-                            title=book.get('title', ''),
-                            authors=[book.get('author', '')],
-                            description=book.get('description', ''),
-                            source='NY Times Bestsellers'
+                            title=book.get("title", ""),
+                            authors=[book.get("author", "")],
+                            description=book.get("description", ""),
+                            source="NY Times Bestsellers",
                         )
-                        minimal_data = self.review_adapter.enrich_with_bestseller_data(minimal_data, book)
+                        minimal_data = self.review_adapter.enrich_with_bestseller_data(
+                            minimal_data, book
+                        )
                         results.append(minimal_data)
 
             return results

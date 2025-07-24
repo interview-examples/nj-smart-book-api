@@ -24,15 +24,13 @@ class BookISBNModelTestCase(TestCase):
         Book.objects.all().delete()
         BookISBN.objects.all().delete()
         Author.objects.all().delete()
-        
+
         self.isbn_13 = "9783161484100"  # Valid ISBN-13
         self.isbn_13_alt = "9780747532699"  # Another valid ISBN-13
         self.isbn_10 = "0306406152"  # Valid ISBN-10
         # Create a book with supported fields only
         self.book = Book.objects.create(
-            title="Test Book",
-            isbn=self.isbn_13,
-            published_date="2023-01-01"
+            title="Test Book", isbn=self.isbn_13, published_date="2023-01-01"
         )
         # Create an author and link to book through many-to-many relationship
         self.author = Author.objects.create(name="Test Author")
@@ -43,9 +41,7 @@ class BookISBNModelTestCase(TestCase):
         """Test creation of BookISBN instance."""
         # Create ISBN for the book
         book_isbn = BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_13,
-            type="ISBN-13"
+            book=self.book, isbn=self.isbn_13, type="ISBN-13"
         )
 
         # Verify the object was created
@@ -56,25 +52,13 @@ class BookISBNModelTestCase(TestCase):
     def test_book_multiple_isbns(self):
         """Test that a Book can have multiple ISBNs."""
         # Create primary ISBN
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_13,
-            type="ISBN-13"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_13, type="ISBN-13")
 
         # Create secondary ISBN
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_10,
-            type="ISBN-10"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_10, type="ISBN-10")
 
         # Create another secondary ISBN
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_13_alt,
-            type="ISBN-13"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_13_alt, type="ISBN-13")
 
         # Retrieve book and check its ISBNs
         book_isbns = self.book.isbns.all()
@@ -88,16 +72,16 @@ class BookISBNModelTestCase(TestCase):
         """Test ISBN validation."""
         # Create a new book for validation test to avoid uniqueness conflicts
         validation_book = Book.objects.create(
-            title="Validation Book",
-            isbn="9781234567897",
-            published_date="2023-01-01"
+            title="Validation Book", isbn="9781234567897", published_date="2023-01-01"
         )
         # Create author for the book
         validation_author = Author.objects.create(name="Validation Author")
         validation_book.authors.add(validation_author)
-        
+
         # Test valid ISBNs
-        valid_isbn13 = BookISBN(book=validation_book, isbn="9781234567897", type="ISBN-13")
+        valid_isbn13 = BookISBN(
+            book=validation_book, isbn="9781234567897", type="ISBN-13"
+        )
         valid_isbn13.full_clean()  # Should not raise ValidationError
 
         valid_isbn10 = BookISBN(book=validation_book, isbn="0306406152", type="ISBN-10")
@@ -105,35 +89,37 @@ class BookISBNModelTestCase(TestCase):
 
         # Test invalid ISBNs
         with self.assertRaises(ValidationError):
-            invalid_isbn10 = BookISBN(book=validation_book, isbn="0306406153", type="ISBN-10")
+            invalid_isbn10 = BookISBN(
+                book=validation_book, isbn="0306406153", type="ISBN-10"
+            )
             invalid_isbn10.full_clean()
 
         with self.assertRaises(ValidationError):
-            invalid_isbn13 = BookISBN(book=validation_book, isbn="9780306406158", type="ISBN-13")
+            invalid_isbn13 = BookISBN(
+                book=validation_book, isbn="9780306406158", type="ISBN-13"
+            )
             invalid_isbn13.full_clean()
 
         with self.assertRaises(ValidationError):
-            invalid_format = BookISBN(book=validation_book, isbn="abc123def456", type="ISBN-13")
+            invalid_format = BookISBN(
+                book=validation_book, isbn="abc123def456", type="ISBN-13"
+            )
             invalid_format.full_clean()
 
         with self.assertRaises(ValidationError):
-            invalid_length = BookISBN(book=validation_book, isbn="12345", type="ISBN-10")
+            invalid_length = BookISBN(
+                book=validation_book, isbn="12345", type="ISBN-10"
+            )
             invalid_length.full_clean()
 
     def test_isbn_uniqueness(self):
         """Test that ISBNs must be unique across all books."""
         # Create an ISBN for the first book
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_13,
-            type="ISBN-13"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_13, type="ISBN-13")
 
         # Create another book
         second_book = Book.objects.create(
-            title="Second Test Book",
-            isbn=self.isbn_13_alt,
-            published_date="2022-01-01"
+            title="Second Test Book", isbn=self.isbn_13_alt, published_date="2022-01-01"
         )
         # Create author for the second book
         second_author = Author.objects.create(name="Another Author")
@@ -142,27 +128,17 @@ class BookISBNModelTestCase(TestCase):
         # Attempt to create an ISBN with the same value for the second book
         with self.assertRaises(ValidationError):
             duplicate_isbn = BookISBN(
-                book=second_book,
-                isbn=self.isbn_13,
-                type="ISBN-13"
+                book=second_book, isbn=self.isbn_13, type="ISBN-13"
             )
             duplicate_isbn.full_clean()
 
     def test_primary_isbn_constraint(self):
         """Test that only one ISBN can be primary for a book."""
         # Create a primary ISBN
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_13,
-            type="ISBN-13"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_13, type="ISBN-13")
 
         # Create a secondary ISBN
-        BookISBN.objects.create(
-            book=self.book,
-            isbn=self.isbn_10,
-            type="ISBN-10"
-        )
+        BookISBN.objects.create(book=self.book, isbn=self.isbn_10, type="ISBN-10")
 
         # Verify we have one primary and one secondary
         primary_isbns = self.book.isbns.filter(type="ISBN-13")
@@ -174,9 +150,7 @@ class BookISBNModelTestCase(TestCase):
         # Attempt to create another primary ISBN for the same book
         # This should not raise an error since we don't have a unique constraint on type
         another_primary = BookISBN(
-            book=self.book,
-            isbn=self.isbn_13_alt,
-            type="ISBN-13"
+            book=self.book, isbn=self.isbn_13_alt, type="ISBN-13"
         )
         another_primary.full_clean()  # This should pass as there is no constraint
 
@@ -186,27 +160,23 @@ class BookISBNModelTestCase(TestCase):
         norm_book = Book.objects.create(
             title="Normalization Book",
             isbn="9781234567897",
-            published_date="2023-01-01"
+            published_date="2023-01-01",
         )
         # Create author for the book
         norm_author = Author.objects.create(name="Norm Author")
         norm_book.authors.add(norm_author)
-        
+
         # Test ISBN-10 with hyphens
         formatted_isbn10 = "0-306-40615-2"
         # Test ISBN-13 with hyphens
         formatted_isbn13 = "978-1-2345-6789-7"
 
         isbn10_obj = BookISBN.objects.create(
-            book=norm_book,
-            isbn=formatted_isbn10,
-            type="ISBN-10"
+            book=norm_book, isbn=formatted_isbn10, type="ISBN-10"
         )
 
         isbn13_obj = BookISBN.objects.create(
-            book=norm_book,
-            isbn=formatted_isbn13,
-            type="ISBN-13"
+            book=norm_book, isbn=formatted_isbn13, type="ISBN-13"
         )
 
         # Verify they were normalized
@@ -232,23 +202,17 @@ class BookISBNModelTestCase(TestCase):
         """Test that deleting a book cascades to its ISBNs."""
         # Create a new book for deletion test
         delete_book = Book.objects.create(
-            title="Delete Book",
-            isbn="9781234567897",
-            published_date="2023-01-01"
+            title="Delete Book", isbn="9781234567897", published_date="2023-01-01"
         )
         # Create author for the book
         delete_author = Author.objects.create(name="Delete Author")
         delete_book.authors.add(delete_author)
         # Create ISBNs
         isbn1 = BookISBN.objects.create(
-            book=delete_book,
-            isbn="9781234567897",
-            type="ISBN-13"
+            book=delete_book, isbn="9781234567897", type="ISBN-13"
         )
         isbn2 = BookISBN.objects.create(
-            book=delete_book,
-            isbn="0306406152",
-            type="ISBN-10"
+            book=delete_book, isbn="0306406152", type="ISBN-10"
         )
 
         # Verify ISBNs exist
@@ -265,18 +229,14 @@ class BookISBNModelTestCase(TestCase):
         """Test the string representation of BookISBN."""
         # Create a new book for string representation test
         str_book = Book.objects.create(
-            title="String Book",
-            isbn="9781234567897",
-            published_date="2023-01-01"
+            title="String Book", isbn="9781234567897", published_date="2023-01-01"
         )
         # Create author for the book
         str_author = Author.objects.create(name="String Author")
         str_book.authors.add(str_author)
         # Create ISBN
         book_isbn = BookISBN.objects.create(
-            book=str_book,
-            isbn="9781234567897",
-            type="ISBN-13"
+            book=str_book, isbn="9781234567897", type="ISBN-13"
         )
 
         # Test __str__ method
@@ -285,9 +245,7 @@ class BookISBNModelTestCase(TestCase):
 
         # Test non-primary ISBN
         secondary_isbn = BookISBN.objects.create(
-            book=str_book,
-            isbn="0306406152",
-            type="ISBN-10"
+            book=str_book, isbn="0306406152", type="ISBN-10"
         )
 
         expected_secondary_str = "0306406152 (ISBN-10)"

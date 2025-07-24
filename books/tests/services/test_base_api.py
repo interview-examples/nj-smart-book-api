@@ -20,44 +20,37 @@ class TestBaseAPIService(base.BaseAPIService):
 
     BASE_URL = "https://test-api.example.com"
 
-    def _make_request(self, url, method="GET", params=None, headers=None, timeout=5, json=None):
+    def _make_request(
+        self, url, method="GET", params=None, headers=None, timeout=5, json=None
+    ):
         """Implementation of abstract _make_request method for testing."""
         try:
             response = requests.request(
-                method,
-                url,
-                params=params,
-                headers=headers,
-                timeout=timeout,
-                json=json
+                method, url, params=params, headers=headers, timeout=timeout, json=json
             )
             response.raise_for_status()
             return response.json()
         except requests.Timeout as e:
             raise base.APITimeoutException(
-                message="Request timed out",
-                source="TestAPI",
-                original_error=e
+                message="Request timed out", source="TestAPI", original_error=e
             )
         except requests.HTTPError as e:
-            status_code = e.response.status_code if hasattr(e.response, 'status_code') else None
+            status_code = (
+                e.response.status_code if hasattr(e.response, "status_code") else None
+            )
             raise base.APIResponseException(
                 message=f"HTTP error: {str(e)}",
                 source="TestAPI",
                 original_error=e,
-                status_code=status_code
+                status_code=status_code,
             )
         except requests.RequestException as e:
             raise base.APIException(
-                message=f"Request error: {str(e)}",
-                source="TestAPI",
-                original_error=e
+                message=f"Request error: {str(e)}", source="TestAPI", original_error=e
             )
         except ValueError as e:
             raise base.APIException(
-                message=f"Invalid JSON: {str(e)}",
-                source="TestAPI",
-                original_error=e
+                message=f"Invalid JSON: {str(e)}", source="TestAPI", original_error=e
             )
 
     def get_test_data(self, param):
@@ -82,7 +75,7 @@ class BaseAPIServiceTestCase(TestCase):
         self.test_param = "test123"
         self.test_url = f"{self.service.BASE_URL}/test/{self.test_param}"
         self.test_cache_key = f"test_data_{self.test_param}"
-        patcher = mock.patch('requests.request')
+        patcher = mock.patch("requests.request")
         self.mock_request = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -95,19 +88,14 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response.status_code = 200
 
         # Patch requests.request
-        with mock.patch('requests.request', return_value=mock_response) as mock_request:
+        with mock.patch("requests.request", return_value=mock_response) as mock_request:
             # Call the method
             result = self.service._make_request(self.test_url)
 
             # Assert results
             self.assertEqual(result, mock_json)
             mock_request.assert_called_once_with(
-                "GET",
-                self.test_url,
-                timeout=5,
-                headers=None,
-                params=None,
-                json=None
+                "GET", self.test_url, timeout=5, headers=None, params=None, json=None
             )
 
     def test_make_request_post(self):
@@ -122,12 +110,10 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response.status_code = 201
 
         # Patch requests.request
-        with mock.patch('requests.request', return_value=mock_response) as mock_request:
+        with mock.patch("requests.request", return_value=mock_response) as mock_request:
             # Call the method
             result = self.service._make_request(
-                self.test_url,
-                method="POST",
-                json=test_data
+                self.test_url, method="POST", json=test_data
             )
 
             # Assert results
@@ -138,7 +124,7 @@ class BaseAPIServiceTestCase(TestCase):
                 timeout=5,
                 headers=None,
                 params=None,
-                json=test_data
+                json=test_data,
             )
 
     def test_make_request_with_params(self):
@@ -153,12 +139,9 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response.status_code = 200
 
         # Patch requests.request
-        with mock.patch('requests.request', return_value=mock_response) as mock_request:
+        with mock.patch("requests.request", return_value=mock_response) as mock_request:
             # Call the method
-            result = self.service._make_request(
-                self.test_url,
-                params=test_params
-            )
+            result = self.service._make_request(self.test_url, params=test_params)
 
             # Assert results
             self.assertEqual(result, mock_json)
@@ -168,13 +151,16 @@ class BaseAPIServiceTestCase(TestCase):
                 timeout=5,
                 headers=None,
                 params=test_params,
-                json=None
+                json=None,
             )
 
     def test_make_request_with_headers(self):
         """Test making request with custom headers."""
         # Test headers
-        test_headers = {"Authorization": "Bearer token123", "Content-Type": "application/json"}
+        test_headers = {
+            "Authorization": "Bearer token123",
+            "Content-Type": "application/json",
+        }
 
         # Mock response
         mock_json = {"status": "authorized", "data": {"id": 123}}
@@ -183,12 +169,9 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response.status_code = 200
 
         # Patch requests.request
-        with mock.patch('requests.request', return_value=mock_response) as mock_request:
+        with mock.patch("requests.request", return_value=mock_response) as mock_request:
             # Call the method
-            result = self.service._make_request(
-                self.test_url,
-                headers=test_headers
-            )
+            result = self.service._make_request(self.test_url, headers=test_headers)
 
             # Assert results
             self.assertEqual(result, mock_json)
@@ -198,13 +181,15 @@ class BaseAPIServiceTestCase(TestCase):
                 timeout=5,
                 headers=test_headers,
                 params=None,
-                json=None
+                json=None,
             )
 
     def test_make_request_timeout(self):
         """Test handling of request timeout."""
         # Patch requests.request to raise Timeout
-        with mock.patch('requests.request', side_effect=requests.Timeout("Request timed out")):
+        with mock.patch(
+            "requests.request", side_effect=requests.Timeout("Request timed out")
+        ):
             # Should raise APITimeoutException
             with self.assertRaises(base.APITimeoutException) as context:
                 self.service._make_request(self.test_url)
@@ -217,9 +202,11 @@ class BaseAPIServiceTestCase(TestCase):
         """Test handling of HTTP error."""
         mock_response = mock.MagicMock()
         mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = requests.HTTPError("Not Found", response=mock_response)
+        mock_response.raise_for_status.side_effect = requests.HTTPError(
+            "Not Found", response=mock_response
+        )
         self.mock_request.return_value = mock_response
-        
+
         with self.assertRaises(base.APIResponseException) as context:
             self.service._make_request(self.test_url)
         self.assertEqual(context.exception.status_code, 404)
@@ -230,7 +217,7 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response = mock.MagicMock()
         mock_response.json.side_effect = ValueError("Invalid JSON")
         self.mock_request.return_value = mock_response
-        
+
         with self.assertRaises(base.APIException) as context:
             self.service._make_request(self.test_url)
         self.assertIn("Invalid JSON", str(context.exception))
@@ -238,7 +225,10 @@ class BaseAPIServiceTestCase(TestCase):
     def test_make_request_connection_error(self):
         """Test handling of connection error."""
         # Patch requests.request to raise ConnectionError
-        with mock.patch('requests.request', side_effect=requests.ConnectionError("Failed to connect")):
+        with mock.patch(
+            "requests.request",
+            side_effect=requests.ConnectionError("Failed to connect"),
+        ):
             # Should raise APIException
             with self.assertRaises(base.APIException) as context:
                 self.service._make_request(self.test_url)
@@ -250,7 +240,7 @@ class BaseAPIServiceTestCase(TestCase):
     def test_retries_on_timeout(self):
         """Test that service retries on timeout."""
         self.mock_request.side_effect = requests.Timeout("Request timed out")
-        
+
         with self.assertRaises(base.APITimeoutException) as context:
             self.service._make_request(self.test_url)
         self.assertIn("Request timed out", str(context.exception))
@@ -258,7 +248,7 @@ class BaseAPIServiceTestCase(TestCase):
     def test_retry_exhaustion(self):
         """Test behavior when all retries are exhausted."""
         self.mock_request.side_effect = requests.Timeout("Request timed out")
-        
+
         with self.assertRaises(base.APITimeoutException):
             self.service._make_request(self.test_url)
 
@@ -267,7 +257,7 @@ class BaseAPIServiceTestCase(TestCase):
         mock_response = mock.MagicMock()
         mock_response.json.side_effect = ValueError("Invalid JSON")
         self.mock_request.return_value = mock_response
-        
+
         with self.assertRaises(base.APIException):
             self.service._make_request(self.test_url)
 
@@ -278,7 +268,7 @@ class BaseAPIServiceTestCase(TestCase):
         mock_make_request = mock.MagicMock(return_value=mock_json)
 
         # No need to mock cache since it's not used in the implementation
-        with mock.patch.object(self.service, '_make_request', mock_make_request):
+        with mock.patch.object(self.service, "_make_request", mock_make_request):
             result = self.service.get_test_data(self.test_param)
 
             # Verify that the result comes from API
@@ -292,17 +282,19 @@ class BaseAPIServiceTestCase(TestCase):
         """Test error handling in API request when no caching is implemented."""
         # Setup mock to raise exception
         mock_make_request = mock.MagicMock()
-        mock_make_request.side_effect = base.APIException("Request failed", source="TestAPI")
+        mock_make_request.side_effect = base.APIException(
+            "Request failed", source="TestAPI"
+        )
 
         # Patch _make_request and verify exception is propagated
-        with mock.patch.object(self.service, '_make_request', mock_make_request):
+        with mock.patch.object(self.service, "_make_request", mock_make_request):
             with self.assertRaises(base.APIException) as context:
                 self.service.get_test_data(self.test_param)
 
             # Verify exception details
             self.assertIn("Request failed", str(context.exception))
             self.assertEqual(context.exception.source, "TestAPI")
-            
+
             # Verify _make_request was called with correct URL
             mock_make_request.assert_called_once()
             args, _ = mock_make_request.call_args
@@ -339,8 +331,10 @@ class APIExceptionTestCase(TestCase):
     def test_api_timeout_exception(self):
         """Test APITimeoutException properties."""
         # Create a mock with the patched string representation
-        with mock.patch('books.services.apis.base.APITimeoutException.__str__', 
-                       return_value="API Timeout: Request timed out"):
+        with mock.patch(
+            "books.services.apis.base.APITimeoutException.__str__",
+            return_value="API Timeout: Request timed out",
+        ):
             ex = base.APITimeoutException("Request timed out", source="TestAPI")
             self.assertEqual(ex.message, "Request timed out")
             self.assertEqual(ex.source, "TestAPI")
@@ -349,14 +343,18 @@ class APIExceptionTestCase(TestCase):
     def test_api_response_exception(self):
         """Test APIResponseException properties."""
         # Create a mock with the patched string representation
-        with mock.patch('books.services.apis.base.APIResponseException.__str__', 
-                       return_value="API Response Error: Invalid response"):
-            ex = base.APIResponseException("Invalid response", status_code=400, source="TestAPI")
+        with mock.patch(
+            "books.services.apis.base.APIResponseException.__str__",
+            return_value="API Response Error: Invalid response",
+        ):
+            ex = base.APIResponseException(
+                "Invalid response", status_code=400, source="TestAPI"
+            )
             self.assertEqual(ex.message, "Invalid response")
             self.assertEqual(ex.status_code, 400)
             self.assertEqual(ex.source, "TestAPI")
             self.assertEqual(str(ex), "API Response Error: Invalid response")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

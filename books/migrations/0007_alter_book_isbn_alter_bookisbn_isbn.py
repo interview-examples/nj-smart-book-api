@@ -7,18 +7,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('books', '0006_alter_bookisbn_options'),
+        ("books", "0006_alter_bookisbn_options"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='book',
-            name='isbn',
-            field=models.CharField(max_length=21, unique=True, validators=[books.models.validate_isbn]),
+            model_name="book",
+            name="isbn",
+            field=models.CharField(
+                max_length=21, unique=True, validators=[books.models.validate_isbn]
+            ),
         ),
         migrations.AlterField(
-            model_name='bookisbn',
-            name='isbn',
-            field=models.CharField(max_length=21, unique=True, validators=[books.models.validate_isbn]),
+            model_name="bookisbn",
+            name="isbn",
+            field=models.CharField(
+                max_length=21, unique=True, validators=[books.models.validate_isbn]
+            ),
         ),
     ]

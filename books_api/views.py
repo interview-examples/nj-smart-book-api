@@ -1,6 +1,7 @@
 """
 Simple views for API documentation without using drf-spectacular.
 """
+
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -15,21 +16,12 @@ def api_schema(request):
         "info": {
             "title": "Smart Books API",
             "version": "1.0.0",
-            "description": "RESTful API for managing books with enrichment and caching"
+            "description": "RESTful API for managing books with enrichment and caching",
         },
         "tags": [
-            {
-                "name": "books",
-                "description": "Book management endpoints"
-            },
-            {
-                "name": "enrichment",
-                "description": "Book data enrichment endpoints"
-            },
-            {
-                "name": "statistics",
-                "description": "Book statistics endpoints"
-            }
+            {"name": "books", "description": "Book management endpoints"},
+            {"name": "enrichment", "description": "Book data enrichment endpoints"},
+            {"name": "statistics", "description": "Book statistics endpoints"},
         ],
         "paths": {
             # Book endpoints
@@ -45,36 +37,40 @@ def api_schema(request):
                             "in": "query",
                             "description": "Search by title, author or ISBN",
                             "required": False,
-                            "schema": {"type": "string"}
+                            "schema": {"type": "string"},
                         },
                         {
                             "name": "author",
                             "in": "query",
                             "description": "Filter by author name",
                             "required": False,
-                            "schema": {"type": "string"}
+                            "schema": {"type": "string"},
                         },
                         {
                             "name": "year",
                             "in": "query",
                             "description": "Filter by publication year",
                             "required": False,
-                            "schema": {"type": "integer"}
+                            "schema": {"type": "integer"},
                         },
                         {
                             "name": "page",
                             "in": "query",
                             "description": "Page number for pagination",
                             "required": False,
-                            "schema": {"type": "integer", "default": 1}
+                            "schema": {"type": "integer", "default": 1},
                         },
                         {
                             "name": "page_size",
                             "in": "query",
                             "description": "Number of items per page",
                             "required": False,
-                            "schema": {"type": "integer", "default": 20, "maximum": 100}
-                        }
+                            "schema": {
+                                "type": "integer",
+                                "default": 20,
+                                "maximum": 100,
+                            },
+                        },
                     ],
                     "responses": {
                         "200": {
@@ -85,18 +81,28 @@ def api_schema(request):
                                         "type": "object",
                                         "properties": {
                                             "count": {"type": "integer"},
-                                            "next": {"type": "string", "format": "uri", "nullable": True},
-                                            "previous": {"type": "string", "format": "uri", "nullable": True},
+                                            "next": {
+                                                "type": "string",
+                                                "format": "uri",
+                                                "nullable": True,
+                                            },
+                                            "previous": {
+                                                "type": "string",
+                                                "format": "uri",
+                                                "nullable": True,
+                                            },
                                             "results": {
                                                 "type": "array",
-                                                "items": {"$ref": "#/components/schemas/Book"}
-                                            }
-                                        }
+                                                "items": {
+                                                    "$ref": "#/components/schemas/Book"
+                                                },
+                                            },
+                                        },
                                     }
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 },
                 "post": {
                     "operationId": "books_create",
@@ -117,13 +123,11 @@ def api_schema(request):
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/Book"}
                                 }
-                            }
+                            },
                         },
-                        "400": {
-                            "description": "Bad request - validation error"
-                        }
-                    }
-                }
+                        "400": {"description": "Bad request - validation error"},
+                    },
+                },
             },
             "/api/v1/books/{id}/": {
                 "parameters": [
@@ -132,7 +136,7 @@ def api_schema(request):
                         "in": "path",
                         "description": "ID of the book",
                         "required": True,
-                        "schema": {"type": "integer"}
+                        "schema": {"type": "integer"},
                     }
                 ],
                 "get": {
@@ -145,14 +149,14 @@ def api_schema(request):
                             "description": "Book details with enriched data",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/EnrichedBook"}
+                                    "schema": {
+                                        "$ref": "#/components/schemas/EnrichedBook"
+                                    }
                                 }
-                            }
+                            },
                         },
-                        "404": {
-                            "description": "Book not found"
-                        }
-                    }
+                        "404": {"description": "Book not found"},
+                    },
                 },
                 "put": {
                     "operationId": "books_update",
@@ -173,12 +177,10 @@ def api_schema(request):
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/Book"}
                                 }
-                            }
+                            },
                         },
-                        "404": {
-                            "description": "Book not found"
-                        }
-                    }
+                        "404": {"description": "Book not found"},
+                    },
                 },
                 "patch": {
                     "operationId": "books_partial_update",
@@ -199,12 +201,10 @@ def api_schema(request):
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/Book"}
                                 }
-                            }
+                            },
                         },
-                        "404": {
-                            "description": "Book not found"
-                        }
-                    }
+                        "404": {"description": "Book not found"},
+                    },
                 },
                 "delete": {
                     "operationId": "books_delete",
@@ -212,14 +212,10 @@ def api_schema(request):
                     "description": "Delete a specific book",
                     "tags": ["books"],
                     "responses": {
-                        "204": {
-                            "description": "Book deleted successfully"
-                        },
-                        "404": {
-                            "description": "Book not found"
-                        }
-                    }
-                }
+                        "204": {"description": "Book deleted successfully"},
+                        "404": {"description": "Book not found"},
+                    },
+                },
             },
             "/api/v1/books/isbn/{isbn}/": {
                 "get": {
@@ -233,7 +229,7 @@ def api_schema(request):
                             "in": "path",
                             "description": "ISBN-10 or ISBN-13 of the book (with or without hyphens)",
                             "required": True,
-                            "schema": {"type": "string"}
+                            "schema": {"type": "string"},
                         }
                     ],
                     "responses": {
@@ -241,9 +237,11 @@ def api_schema(request):
                             "description": "Successful operation",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/EnrichedBook"}
+                                    "schema": {
+                                        "$ref": "#/components/schemas/EnrichedBook"
+                                    }
                                 }
-                            }
+                            },
                         },
                         "404": {
                             "description": "Book not found",
@@ -252,13 +250,16 @@ def api_schema(request):
                                     "schema": {
                                         "type": "object",
                                         "properties": {
-                                            "error": {"type": "string", "example": "Book not found"}
-                                        }
+                                            "error": {
+                                                "type": "string",
+                                                "example": "Book not found",
+                                            }
+                                        },
                                     }
                                 }
-                            }
-                        }
-                    }
+                            },
+                        },
+                    },
                 }
             },
             "/api/v1/books/search/": {
@@ -273,22 +274,26 @@ def api_schema(request):
                             "in": "query",
                             "description": "Search query for title, author or ISBN",
                             "required": True,
-                            "schema": {"type": "string"}
+                            "schema": {"type": "string"},
                         },
                         {
                             "name": "page",
                             "in": "query",
                             "description": "Page number for pagination",
                             "required": False,
-                            "schema": {"type": "integer", "default": 1}
+                            "schema": {"type": "integer", "default": 1},
                         },
                         {
                             "name": "page_size",
                             "in": "query",
                             "description": "Number of items per page",
                             "required": False,
-                            "schema": {"type": "integer", "default": 20, "maximum": 100}
-                        }
+                            "schema": {
+                                "type": "integer",
+                                "default": 20,
+                                "maximum": 100,
+                            },
+                        },
                     ],
                     "responses": {
                         "200": {
@@ -299,18 +304,28 @@ def api_schema(request):
                                         "type": "object",
                                         "properties": {
                                             "count": {"type": "integer"},
-                                            "next": {"type": "string", "format": "uri", "nullable": True},
-                                            "previous": {"type": "string", "format": "uri", "nullable": True},
+                                            "next": {
+                                                "type": "string",
+                                                "format": "uri",
+                                                "nullable": True,
+                                            },
+                                            "previous": {
+                                                "type": "string",
+                                                "format": "uri",
+                                                "nullable": True,
+                                            },
                                             "results": {
                                                 "type": "array",
-                                                "items": {"$ref": "#/components/schemas/Book"}
-                                            }
-                                        }
+                                                "items": {
+                                                    "$ref": "#/components/schemas/Book"
+                                                },
+                                            },
+                                        },
                                     }
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
             },
             # Enrichment endpoints
@@ -326,25 +341,19 @@ def api_schema(request):
                             "in": "query",
                             "description": "ISBN of the book to enrich",
                             "required": True,
-                            "schema": {"type": "string"}
+                            "schema": {"type": "string"},
                         }
                     ],
                     "responses": {
                         "200": {
                             "description": "Enriched book data",
                             "content": {
-                                "application/json": {
-                                    "schema": {"type": "object"}
-                                }
-                            }
+                                "application/json": {"schema": {"type": "object"}}
+                            },
                         },
-                        "400": {
-                            "description": "ISBN parameter is missing"
-                        },
-                        "404": {
-                            "description": "Failed to enrich book data"
-                        }
-                    }
+                        "400": {"description": "ISBN parameter is missing"},
+                        "404": {"description": "Failed to enrich book data"},
+                    },
                 }
             },
             "/api/v1/enrichment/search_external/": {
@@ -361,10 +370,10 @@ def api_schema(request):
                                     "properties": {
                                         "query": {
                                             "type": "string",
-                                            "description": "Search query"
+                                            "description": "Search query",
                                         }
                                     },
-                                    "required": ["query"]
+                                    "required": ["query"],
                                 }
                             }
                         }
@@ -376,17 +385,13 @@ def api_schema(request):
                                 "application/json": {
                                     "schema": {
                                         "type": "array",
-                                        "items": {
-                                            "type": "object"
-                                        }
+                                        "items": {"type": "object"},
                                     }
                                 }
-                            }
+                            },
                         },
-                        "400": {
-                            "description": "Query parameter is missing"
-                        }
-                    }
+                        "400": {"description": "Query parameter is missing"},
+                    },
                 }
             },
             # Statistics endpoint
@@ -408,7 +413,9 @@ def api_schema(request):
                                             "total_authors": {"type": "integer"},
                                             "books_by_year": {
                                                 "type": "object",
-                                                "additionalProperties": {"type": "integer"}
+                                                "additionalProperties": {
+                                                    "type": "integer"
+                                                },
                                             },
                                             "most_common_genres": {
                                                 "type": "array",
@@ -416,18 +423,18 @@ def api_schema(request):
                                                     "type": "object",
                                                     "properties": {
                                                         "genre": {"type": "string"},
-                                                        "count": {"type": "integer"}
-                                                    }
-                                                }
-                                            }
-                                        }
+                                                        "count": {"type": "integer"},
+                                                    },
+                                                },
+                                            },
+                                        },
                                     }
                                 }
-                            }
+                            },
                         }
-                    }
+                    },
                 }
-            }
+            },
         },
         "components": {
             "schemas": {
@@ -439,10 +446,7 @@ def api_schema(request):
                         "isbn": {"type": "string"},
                         "description": {"type": "string", "nullable": True},
                         "published_date": {"type": "string", "format": "date"},
-                        "authors": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
+                        "authors": {"type": "array", "items": {"type": "string"}},
                     },
                     "required": ["title", "isbn", "authors"],
                 },
@@ -453,10 +457,7 @@ def api_schema(request):
                         "isbn": {"type": "string"},
                         "description": {"type": "string", "nullable": True},
                         "published_date": {"type": "string", "format": "date"},
-                        "authors": {
-                            "type": "array",
-                            "items": {"type": "string"}
-                        },
+                        "authors": {"type": "array", "items": {"type": "string"}},
                     },
                     "required": ["title", "isbn", "authors"],
                 },
@@ -465,19 +466,31 @@ def api_schema(request):
                     "properties": {
                         "external_title": {"type": "string", "nullable": True},
                         "external_subtitle": {"type": "string", "nullable": True},
-                        "external_authors": {"type": "array", "items": {"type": "string"}, "nullable": True},
+                        "external_authors": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "nullable": True,
+                        },
                         "external_description": {"type": "string", "nullable": True},
                         "publisher": {"type": "string", "nullable": True},
                         "publication_year": {"type": "string", "nullable": True},
                         "page_count": {"type": "integer", "nullable": True},
                         "language": {"type": "string", "nullable": True},
-                        "categories": {"type": "array", "items": {"type": "string"}, "nullable": True},
+                        "categories": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "nullable": True,
+                        },
                         "thumbnail": {"type": "string", "nullable": True},
                         "preview_link": {"type": "string", "nullable": True},
-                        "rating": {"type": "number", "format": "float", "nullable": True},
+                        "rating": {
+                            "type": "number",
+                            "format": "float",
+                            "nullable": True,
+                        },
                         "reviews_count": {"type": "integer", "nullable": True},
                         "ny_times_review": {"type": "string", "nullable": True},
-                    }
+                    },
                 },
                 "EnrichedBook": {
                     "type": "object",
@@ -487,18 +500,17 @@ def api_schema(request):
                         "isbn": {"type": "string"},
                         "description": {"type": "string", "nullable": True},
                         "published_date": {"type": "string", "format": "date"},
-                        "authors": {
-                            "type": "array",
-                            "items": {"type": "string"}
+                        "authors": {"type": "array", "items": {"type": "string"}},
+                        "enriched_data": {
+                            "$ref": "#/components/schemas/EnrichmentData"
                         },
-                        "enriched_data": {"$ref": "#/components/schemas/EnrichmentData"},
                     },
                     "required": ["title", "isbn", "authors"],
-                }
+                },
             }
-        }
+        },
     }
-    
+
     return JsonResponse(schema)
 
 

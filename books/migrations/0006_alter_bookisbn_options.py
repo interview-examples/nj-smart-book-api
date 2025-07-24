@@ -6,12 +6,15 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('books', '0005_author_remove_book_author_book_authors'),
+        ("books", "0005_author_remove_book_author_book_authors"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='bookisbn',
-            options={'verbose_name': "Book's ISBN", 'verbose_name_plural': "Books' ISBNs"},
+            name="bookisbn",
+            options={
+                "verbose_name": "Book's ISBN",
+                "verbose_name_plural": "Books' ISBNs",
+            },
         ),
     ]

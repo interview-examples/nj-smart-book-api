@@ -19,3 +19,4 @@ psycopg2-binary==2.9.9
 redis==5.0.0
 gunicorn==21.2.0
 dj-database-url==2.1.0
+black==25.1.0
