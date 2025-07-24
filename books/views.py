@@ -40,43 +40,36 @@ class BookViewSet(viewsets.ModelViewSet):
         return BookSerializer
 
     def get_queryset(self):
-        """
-        Get the base QuerySet for books depending on the action.
-        For list, returns all books; for ISBN search, filters by ISBN.
-        """
-        # Define base ordering to be applied to all querysets
+        """Get the base QuerySet for books depending on the action."""
         ordering = ('title', 'published_date')
+        queryset = Book.objects.all().order_by(*ordering)
         
         action = getattr(self, 'action', None)
         if action == 'search_by_isbn':
             isbn = self.request.query_params.get('isbn', '')
             if isbn:
                 book = self.service.get_book_by_isbn(isbn)
-                if book:
-                    return Book.objects.filter(id=book.id).order_by(*ordering)
-                return Book.objects.none()
-            return Book.objects.none()
+                queryset = Book.objects.filter(id=book.id).order_by(*ordering) if book else Book.objects.none()
+            else:
+                queryset = Book.objects.none()
+        else:
+            # Apply filters based on query parameters
+            search = self.request.query_params.get('search')
+            author = self.request.query_params.get('author')
+            year = self.request.query_params.get('year')
+            
+            if search:
+                queryset = queryset.filter(
+                    Q(title__icontains=search) |
+                    Q(authors__name__icontains=search) |
+                    Q(isbn__icontains=search)
+                ).distinct()
+            elif author:
+                queryset = queryset.filter(authors__name__icontains=author).distinct()
+            elif year and year.isdigit():
+                queryset = queryset.filter(published_date__year=year)
         
-        # Search by title, author or ISBN
-        search = self.request.query_params.get('search', None)
-        if search:
-            return Book.objects.filter(
-                Q(title__icontains=search) |
-                Q(authors__name__icontains=search) |
-                Q(isbn__icontains=search)
-            ).order_by(*ordering).distinct()
-
-        # Filter by author
-        author = self.request.query_params.get('author', None)
-        if author:
-            return Book.objects.filter(authors__name__icontains=author).order_by(*ordering).distinct()
-
-        # Filter by publication year
-        year = self.request.query_params.get('year', None)
-        if year and year.isdigit():
-            return Book.objects.filter(published_date__year=year).order_by(*ordering)
-
-        return super().get_queryset()
+        return queryset
 
     @extend_schema(
         parameters=[
