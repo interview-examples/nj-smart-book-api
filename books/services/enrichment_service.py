@@ -1,123 +1,96 @@
-from typing import Optional, Dict, Any, List
-from books.services.enrichment.service import BookEnrichmentService
-from books.models import Book, BookISBN
-from books.services.book_service import BookService
-from books.repositories.book_repository import BookRepository
+from typing import Optional, List
+from books.models import Book, BookISBN, Author
 
 class EnrichmentService:
-    """Service for enriching book data from external sources."""
+    """Simple service for enriching book data from external sources."""
 
-    def __init__(self, book_service: BookService, external_service=None, book_repository=None):
-        """
-        Initialize the service with dependency injection.
-        
-        Args:
-            book_service: Service for working with books
-            external_service: Service for enriching book data. If None, a default instance is created.
-            book_repository: Repository for working with books. If None, a default instance is created.
-        """
-        self.book_service = book_service
-        self.external_service = external_service or BookEnrichmentService()
-        self.repository = book_repository or BookRepository()
+    def __init__(self):
+        # Import here to avoid circular imports
+        try:
+            from books.services.enrichment.service import BookEnrichmentService
+            self.external_service = BookEnrichmentService()
+        except ImportError:
+            self.external_service = None
 
     def enrich_book_by_isbn(self, isbn: str) -> Optional[Book]:
-        """
-        Enriches book data by ISBN using an external service.
-        If the book already exists, updates it; if not, creates a new one.
-        
-        Args:
-            isbn: ISBN of the book to enrich.
-            
-        Returns:
-            Optional[Book]: Enriched book object or None if enrichment failed.
-        """
-        book = self.book_service.get_book_by_isbn(isbn)
-        enriched_data = self.external_service.enrich_book_data(isbn)
-        if not enriched_data:
+        """Enrich book data by ISBN."""
+        if not isbn or not self.external_service:
             return None
-        # Check if enriched_data is a dictionary or an object with a dict() method
-        if hasattr(enriched_data, 'dict'):
-            enriched_dict = enriched_data.dict()
-        else:
-            enriched_dict = vars(enriched_data) if not isinstance(enriched_data, dict) else enriched_data
-        # Filter only supported fields for the Book model
-        valid_fields = {field.name for field in Book._meta.get_fields()}
-        filtered_data = {k: v for k, v in enriched_dict.items() if k in valid_fields}
-        if book:
-            updated_book = self.book_service.update_book(book.id, filtered_data)
-            if updated_book:
-                self.create_additional_isbns(updated_book, enriched_dict.get('industryIdentifiers', []))
-            return updated_book
-        else:
-            new_book = self.book_service.create_book(filtered_data)
-            if new_book:
-                self.create_additional_isbns(new_book, enriched_dict.get('industryIdentifiers', []))
-            return new_book
-
-    def search_external(self, query: str) -> List[Dict[str, Any]]:
-        """
-        Search for books in external sources.
-        
-        Args:
-            query: Search query string
             
-        Returns:
-            List[Dict[str, Any]]: List of search results from external APIs
-        """
-        results = []
-        # Here we can implement search through multiple external APIs
-        google_results = self.external_service.google_books.search_books(query)
-        if google_results:
-            results.extend(google_results)
-        open_library_results = self.external_service.open_library.search_books(query)
-        if open_library_results:
-            results.extend(open_library_results)
-        return results
-
-    def _format_book_data(self, book: Book) -> Dict[str, Any]:
-        """
-        Format book data for API response.
-        
-        Args:
-            book: Book object to format
-            
-        Returns:
-            Dict[str, Any]: Formatted book data
-        """
-        return {
-            'id': book.id,
-            'title': book.title,
-            'author': book.author,
-            'isbn': book.isbn,
-            'description': book.description,
-            'published_date': book.published_date,
-            # Add other fields if they exist in the model
-        }
-
-    def create_additional_isbns(self, book: Book, isbn_list: List[Dict[str, str]]) -> None:
-        """
-        Create ISBN records for a book.
-        
-        Args:
-            book: Book object
-            isbn_list: List of dictionaries with ISBN data
-        """
-        if not isbn_list:  # Protection against None and empty lists
-            return
-            
-        for isbn_data in isbn_list:
-            isbn_value = isbn_data.get('identifier', '')
-            # Ensure consistency in ISBN type format, converting all to hyphenated format
-            isbn_type_raw = isbn_data.get('type', '')
-            
-            # Accept both underscore format (ISBN_10) and hyphenated format (ISBN-10)
-            if isbn_type_raw in ['ISBN_10', 'ISBN-10']:
-                isbn_type = 'ISBN-10'
-            elif isbn_type_raw in ['ISBN_13', 'ISBN-13']:
-                isbn_type = 'ISBN-13'
-            else:
-                continue  # Skip if not a recognized ISBN type
+        try:
+            enriched_data = self.external_service.enrich_book_data(isbn)
+            if not enriched_data:
+                return None
                 
-            # Create ISBN record if it doesn't exist
-            if isbn_value and len(isbn_value) > 0:
-                BookISBN.objects.get_or_create(book=book, isbn=isbn_value, isbn_type=isbn_type)
+            # Try to find existing book
+            clean_isbn = isbn.replace('-', '').replace(' ', '')
+            try:
+                book_isbn = BookISBN.objects.get(isbn__iexact=clean_isbn)
+                book = book_isbn.book
+                # Update existing book
+                if enriched_data.title:
+                    book.title = enriched_data.title
+                if enriched_data.description:
+                    book.description = enriched_data.description
+                if enriched_data.published_date:
+                    book.published_date = enriched_data.published_date
+                book.save()
+            except BookISBN.DoesNotExist:
+                # Create new book
+                book = Book.objects.create(
+                    title=enriched_data.title or 'Unknown Title',
+                    description=enriched_data.description or '',
+                    published_date=enriched_data.published_date
+                )
+                
+                # Add authors
+                if hasattr(enriched_data, 'authors') and enriched_data.authors:
+                    for author_name in enriched_data.authors:
+                        if isinstance(author_name, str):
+                            author, _ = Author.objects.get_or_create(name=author_name)
+                            book.authors.add(author)
+                
+                # Add ISBN
+                isbn_type = 'ISBN-13' if len(clean_isbn) == 13 else 'ISBN-10'
+                BookISBN.objects.get_or_create(book=book, isbn=clean_isbn, defaults={'type': isbn_type})
+            
+            return book
+        except Exception as e:
+            # Log error and return None
+            print(f"Error enriching book: {e}")
+            return None
+
+    def search_external(self, query: str, limit: int = 10) -> List[dict]:
+        """Search for books in external APIs."""
+        if not query or not self.external_service:
+            return []
+            
+        try:
+            results = self.external_service.search_books(query=query, limit=limit)
+            return [self._format_book_data(result) for result in results if result]
+        except Exception as e:
+            print(f"Error searching external APIs: {e}")
+            return []
+
+    def _format_book_data(self, enriched_data) -> dict:
+        """Format enriched data for API response."""
+        try:
+            return {
+                'title': getattr(enriched_data, 'title', ''),
+                'authors': getattr(enriched_data, 'authors', []) or [],
+                'description': getattr(enriched_data, 'description', ''),
+                'published_date': getattr(enriched_data, 'published_date', ''),
+                'isbn': getattr(enriched_data, 'isbn', ''),
+                'cover_url': getattr(enriched_data, 'cover_url', ''),
+                'data_source': getattr(enriched_data, 'data_source', 'unknown')
+            }
+        except Exception:
+            return {
+                'title': 'Unknown',
+                'authors': [],
+                'description': '',
+                'published_date': '',
+                'isbn': '',
+                'cover_url': '',
+                'data_source': 'unknown'
+            }

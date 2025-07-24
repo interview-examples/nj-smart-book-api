@@ -44,8 +44,11 @@ The project follows a clean architecture pattern with separation of concerns:
 ## Setup Instructions
 
 ### Prerequisites
+- Python 3.10+ (for local development)
 - Docker and Docker Compose
-- API keys for external services (optional, but recommended for full functionality)
+- API keys for external services (optional, but recommended for full functionality): 
+   -    Google Books can be used without API keys (but may have any limits and restrictions)
+   -    NY Times strongly needs an API key
 
 ### Installation
 

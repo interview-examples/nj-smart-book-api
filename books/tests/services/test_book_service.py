@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 class BookServiceTestCase(TestCase):
     def setUp(self):
-        # Clear database before each test to avoid ISBN uniqueness conflicts
+        # Clear database before each test to avoid uniqueness conflicts
         Book.objects.all().delete()
         BookISBN.objects.all().delete()
         Author.objects.all().delete()  # Clear authors to avoid unique constraint violations
@@ -22,7 +22,6 @@ class BookServiceTestCase(TestCase):
         self.book = self.book_service.create_book(self.book_data)
         author, _ = Author.objects.get_or_create(name='Test Author')  # Use get_or_create to prevent duplicates
         self.book.authors.add(author)
-        BookISBN.objects.create(book=self.book, isbn=self.book_data['isbn'])
 
     def test_get_book_by_isbn(self):
         """Test getting a book by ISBN."""
@@ -106,9 +105,9 @@ class BookServiceTestCase(TestCase):
         book = self.book_service.create_book(book_data)
         author, _ = Author.objects.get_or_create(name='Test Author')  # Use get_or_create to prevent duplicates
         book.authors.add(author)
-        # Create linked ISBNs manually
-        BookISBN.objects.create(book=book, isbn=primary_isbn)
-        BookISBN.objects.create(book=book, isbn=secondary_isbn)
+        # Create linked ISBNs manually (primary_isbn already created by create_book)
+        BookISBN.objects.get_or_create(book=book, isbn=primary_isbn, defaults={'type': 'ISBN-13'})
+        BookISBN.objects.get_or_create(book=book, isbn=secondary_isbn, defaults={'type': 'ISBN-13'})
         # Test retrieval by primary ISBN
         result_primary = self.book_service.get_book_by_all_isbns(primary_isbn)
         self.assertEqual(result_primary, book)
