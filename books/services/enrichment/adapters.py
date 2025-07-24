@@ -191,7 +191,9 @@ class NYTimesReviewAdapter:
             logger.error(f"Error getting bestsellers from NY Times: {str(e)}")
             return {}
 
-    def enrich_with_bestseller_data(self, enrichment_data: BookEnrichmentData, bestseller_data: Dict[str, Any]) -> BookEnrichmentData:
+    def enrich_with_bestseller_data(
+        self, enrichment_data: BookEnrichmentData, bestseller_data: Dict[str, Any]
+    ) -> BookEnrichmentData:
         """
         Enrich BookEnrichmentData with bestseller data.
 
@@ -205,7 +207,7 @@ class NYTimesReviewAdapter:
         if not enrichment_data or not bestseller_data:
             return enrichment_data
 
-        enrichment_data.rank = bestseller_data.get('rank', 0)
-        enrichment_data.weeks_on_list = bestseller_data.get('weeks_on_list', 0)
+        enrichment_data.rank = bestseller_data.get("rank", 0)
+        enrichment_data.weeks_on_list = bestseller_data.get("weeks_on_list", 0)
 
         return enrichment_data

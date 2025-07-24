@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class EnrichmentServiceError(Exception):
     """Base exception for all enrichment service errors."""
+
     pass
 
 
@@ -33,7 +34,7 @@ class BookEnrichmentService:
         self,
         google_books_service: Optional[GoogleBooksService] = None,
         open_library_service: Optional[OpenLibraryService] = None,
-        ny_times_service: Optional[NYTimesService] = None
+        ny_times_service: Optional[NYTimesService] = None,
     ):
         """
         Initialize the enrichment service with provided API services or create default instances.
@@ -51,9 +52,13 @@ class BookEnrichmentService:
         self.data_sources = [self.google_books, self.open_library]
 
         # Cache timeout in seconds
-        self.cache_timeout = getattr(settings, 'BOOK_ENRICHMENT_CACHE_TIMEOUT', 14400)  # 4 hours default
+        self.cache_timeout = getattr(
+            settings, "BOOK_ENRICHMENT_CACHE_TIMEOUT", 14400
+        )  # 4 hours default
 
-    @cached_api_call(cache_timeout=getattr(settings, 'BOOK_ENRICHMENT_CACHE_TIMEOUT', 14400))
+    @cached_api_call(
+        cache_timeout=getattr(settings, "BOOK_ENRICHMENT_CACHE_TIMEOUT", 14400)
+    )
     def enrich_book_data(self, isbn: str) -> Optional[BookEnrichmentData]:
         """
         Get enriched book data from all available sources for a single ISBN.
@@ -83,7 +88,9 @@ class BookEnrichmentService:
                     elif isinstance(source, OpenLibraryService):
                         source_data = source.to_enrichment_data(book_data, isbn)
                     else:
-                        logger.warning(f"Unknown book data source: {source.__class__.__name__}")
+                        logger.warning(
+                            f"Unknown book data source: {source.__class__.__name__}"
+                        )
                         continue
 
                     # Merge with existing data if any, or use this as the base
@@ -92,12 +99,19 @@ class BookEnrichmentService:
                     else:
                         enriched_data = source_data
 
-                    logger.info(f"Retrieved book data for ISBN {isbn} from {source.__class__.__name__}")
+                    logger.info(
+                        f"Retrieved book data for ISBN {isbn} from {source.__class__.__name__}"
+                    )
 
             except APIException as e:
-                logger.error(f"Error retrieving book data from {source.__class__.__name__}: {str(e)}")
+                logger.error(
+                    f"Error retrieving book data from {source.__class__.__name__}: {str(e)}"
+                )
             except Exception as e:
-                logger.error(f"Unexpected error in {source.__class__.__name__}: {str(e)}", exc_info=True)
+                logger.error(
+                    f"Unexpected error in {source.__class__.__name__}: {str(e)}",
+                    exc_info=True,
+                )
 
         # If we found book data, try to add a review from NY Times
         if enriched_data:
@@ -107,13 +121,17 @@ class BookEnrichmentService:
                     enriched_data.ny_times_review = review
                     logger.info(f"Added NY Times review for ISBN {isbn}")
             except Exception as e:
-                logger.error(f"Error retrieving NY Times review for ISBN {isbn}: {str(e)}")
+                logger.error(
+                    f"Error retrieving NY Times review for ISBN {isbn}: {str(e)}"
+                )
         else:
             logger.info(f"No book data found for ISBN {isbn} from any source")
 
         return enriched_data
 
-    def enrich_book_data_multi_isbn(self, isbns: List[str]) -> Optional[BookEnrichmentData]:
+    def enrich_book_data_multi_isbn(
+        self, isbns: List[str]
+    ) -> Optional[BookEnrichmentData]:
         """
         Try to enrich book data using multiple ISBNs, merging results if found.
         Useful for books with both ISBN-10 and ISBN-13 or other alternate identifiers.
@@ -163,7 +181,7 @@ class BookEnrichmentService:
         author: str = "",
         authors: List[str] = None,
         isbn: str = "",
-        limit: int = 10
+        limit: int = 10,
     ) -> List[BookEnrichmentData]:
         """
         Search for books across all available sources.
@@ -205,7 +223,7 @@ class BookEnrichmentService:
                     title=title,
                     authors=authors,
                     isbn=isbn,
-                    limit=search_limit
+                    limit=search_limit,
                 )
 
                 for book_data in raw_results:
@@ -230,11 +248,15 @@ class BookEnrichmentService:
                         break
 
             except Exception as e:
-                logger.error(f"Error searching books in {source.__class__.__name__}: {str(e)}")
+                logger.error(
+                    f"Error searching books in {source.__class__.__name__}: {str(e)}"
+                )
 
         return results
 
-    def get_bestsellers(self, list_name: str = "hardcover-fiction", limit: int = 10) -> List[BookEnrichmentData]:
+    def get_bestsellers(
+        self, list_name: str = "hardcover-fiction", limit: int = 10
+    ) -> List[BookEnrichmentData]:
         """
         Get bestseller list from NY Times and enrich with book data.
 
@@ -248,17 +270,19 @@ class BookEnrichmentService:
         try:
             # Get bestsellers from NY Times
             bestsellers = self.ny_times.get_bestsellers(list_name)
-            if not bestsellers or 'books' not in bestsellers:
+            if not bestsellers or "books" not in bestsellers:
                 logger.info(f"No bestsellers found for list: {list_name}")
                 return []
 
             results = []
-            books = bestsellers.get('books', [])[:limit]
+            books = bestsellers.get("books", [])[:limit]
 
             # Enrich each bestseller with detailed book data
             for book in books:
                 # Get ISBNs from bestseller entry
-                primary_isbn = book.get('primary_isbn13') or book.get('primary_isbn10', '')
+                primary_isbn = book.get("primary_isbn13") or book.get(
+                    "primary_isbn10", ""
+                )
 
                 if primary_isbn:
                     # Try to get enriched data
@@ -266,19 +290,19 @@ class BookEnrichmentService:
 
                     if enriched_data:
                         # Add bestseller rank
-                        enriched_data.rank = book.get('rank', 0)
-                        enriched_data.weeks_on_list = book.get('weeks_on_list', 0)
+                        enriched_data.rank = book.get("rank", 0)
+                        enriched_data.weeks_on_list = book.get("weeks_on_list", 0)
                         results.append(enriched_data)
                     else:
                         # Create minimal data from bestseller info
-                        author_name = book.get('author', '')
+                        author_name = book.get("author", "")
                         authors_list = [author_name] if author_name else []
                         minimal_data = BookEnrichmentData(
                             isbn=primary_isbn,
-                            title=book.get('title', ''),
+                            title=book.get("title", ""),
                             authors=authors_list,
-                            description=book.get('description', ''),
-                            source='NY Times Bestsellers'
+                            description=book.get("description", ""),
+                            source="NY Times Bestsellers",
                         )
                         results.append(minimal_data)
 

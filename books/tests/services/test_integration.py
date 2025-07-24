@@ -14,7 +14,11 @@ from books.services.models.data_models import BookEnrichmentData, IndustryIdenti
 from books.services.apis.google_books import GoogleBooksService
 from books.services.apis.open_library import OpenLibraryService
 from books.services.apis.nytimes import NYTimesService
-from books.services.enrichment.adapters import GoogleBooksAdapter, OpenLibraryAdapter, NYTimesReviewAdapter
+from books.services.enrichment.adapters import (
+    GoogleBooksAdapter,
+    OpenLibraryAdapter,
+    NYTimesReviewAdapter,
+)
 from books.services.enrichment.service import BookEnrichmentService
 from books.services.enrichment.enhanced_service import EnhancedBookEnrichmentService
 from books.tests.services.test_base import BaseAPIServiceTestCase, MockResponses
@@ -47,13 +51,13 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
         self.enrichment_service = BookEnrichmentService(
             google_books_service=self.google_service,
             open_library_service=self.open_library_service,
-            ny_times_service=self.nytimes_service
+            ny_times_service=self.nytimes_service,
         )
 
         # Create enhanced enrichment service
         self.enhanced_enrichment_service = EnhancedBookEnrichmentService(
             adapters=None,  # Use default adapters
-            review_adapter=None  # Use default review adapter
+            review_adapter=None,  # Use default review adapter
         )
 
     def setup_google_books_mocks(self):
@@ -70,7 +74,10 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
             isbn=self.test_isbn,
             title="Test Book Google",
             subtitle="A Test Book",
-            authors=["Test Author 1", "Test Author 2"],  # Update to use a list of authors
+            authors=[
+                "Test Author 1",
+                "Test Author 2",
+            ],  # Update to use a list of authors
             publisher="Test Publisher",
             published_date="2021",
             description="Google Description",
@@ -80,15 +87,17 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
             language="en",
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn),
-                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt)
+                IndustryIdentifier(type="ISBN_10", identifier=self.test_isbn_alt),
             ],
-            source="Google Books"
+            source="Google Books",
         )
 
         # Configure mocks
         self.google_service.get_book_data.return_value = self.google_books_data
         self.google_service.search_books.return_value = self.google_search_data
-        self.google_service.to_enrichment_data.return_value = self.google_enrichment_data
+        self.google_service.to_enrichment_data.return_value = (
+            self.google_enrichment_data
+        )
 
     def setup_open_library_mocks(self):
         """Setup Open Library API mocks."""
@@ -105,7 +114,10 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
         self.open_library_enrichment_data = BookEnrichmentData(
             isbn=self.test_isbn,
             title="Test Book Open Library",
-            authors=["Another Author 1", "Another Author 2"],  # Update to use a list of authors
+            authors=[
+                "Another Author 1",
+                "Another Author 2",
+            ],  # Update to use a list of authors
             publisher="Another Publisher",
             published_date="2022",
             description="Open Library Description",
@@ -116,13 +128,17 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
             industry_identifiers=[
                 IndustryIdentifier(type="ISBN_13", identifier=self.test_isbn)
             ],
-            source="Open Library"
+            source="Open Library",
         )
 
         # Configure mocks
         self.open_library_service.get_book_data.return_value = self.open_library_data
-        self.open_library_service.search_books.return_value = self.open_library_search_data
-        self.open_library_service.to_enrichment_data.return_value = self.open_library_enrichment_data
+        self.open_library_service.search_books.return_value = (
+            self.open_library_search_data
+        )
+        self.open_library_service.to_enrichment_data.return_value = (
+            self.open_library_enrichment_data
+        )
 
     def setup_nytimes_mocks(self):
         """Setup NY Times API mocks."""
@@ -135,7 +151,9 @@ class IntegrationTestCase(BaseAPIServiceTestCase):
 
         # Configure mocks
         self.nytimes_service.get_book_review.return_value = self.nytimes_review_data
-        self.nytimes_service.get_bestsellers.return_value = self.nytimes_bestsellers_data
+        self.nytimes_service.get_bestsellers.return_value = (
+            self.nytimes_bestsellers_data
+        )
 
 
 class EnrichmentIntegrationTestCase(IntegrationTestCase):
@@ -163,7 +181,9 @@ class EnrichmentIntegrationTestCase(IntegrationTestCase):
 
     def test_enhanced_service_with_bestsellers(self):
         """Test enhanced enrichment service with bestseller data."""
-        result = self.enhanced_enrichment_service.get_bestsellers(list_name="hardcover-fiction", limit=10)
+        result = self.enhanced_enrichment_service.get_bestsellers(
+            list_name="hardcover-fiction", limit=10
+        )
         self.assertIsInstance(result, list)
         # Consider that the list may be empty due to the lack of API key
         # Therefore, we do not check the number of calls
@@ -177,8 +197,12 @@ class EnrichmentIntegrationTestCase(IntegrationTestCase):
         # Consider that the results may be empty or different
 
         # Verify mocks - checking if either service was called with the query
-        self.google_service.search_books.assert_called_once_with(query=query, title="", authors=None, isbn="", limit=10)
-        self.open_library_service.search_books.assert_called_once_with(query=query, title="", authors=None, isbn="", limit=9)
+        self.google_service.search_books.assert_called_once_with(
+            query=query, title="", authors=None, isbn="", limit=10
+        )
+        self.open_library_service.search_books.assert_called_once_with(
+            query=query, title="", authors=None, isbn="", limit=9
+        )
 
     def test_multi_isbn_support(self):
         """Test enrichment with multiple ISBNs for the same book."""
@@ -221,7 +245,7 @@ class LegacyAdapterIntegrationTestCase(IntegrationTestCase):
         self.enrichment_service = BookEnrichmentService(
             google_books_service=self.google_service,
             open_library_service=self.open_library_service,
-            ny_times_service=self.nytimes_service
+            ny_times_service=self.nytimes_service,
         )
 
     def test_legacy_get_book_data_flow(self):
@@ -243,12 +267,12 @@ class LegacyAdapterIntegrationTestCase(IntegrationTestCase):
         query = "Harry Potter"
         # Use current service instead of the legacy adapter
         # Assuming that BookEnrichmentService has a search_books method, if not, adaptation will be needed
-        results = getattr(self.enrichment_service, 'search_books', lambda q: []) (query)
+        results = getattr(self.enrichment_service, "search_books", lambda q: [])(query)
         self.assertIsInstance(results, list)
 
     def test_legacy_get_bestsellers_flow(self):
         """Testing the bestsellers retrieval flow using current service."""
         # Use current service instead of the legacy adapter
         # Assuming that BookEnrichmentService has a get_bestsellers method, if not, adaptation will be needed
-        bestsellers = getattr(self.enrichment_service, 'get_bestsellers', lambda: []) ()
+        bestsellers = getattr(self.enrichment_service, "get_bestsellers", lambda: [])()
         self.assertIsInstance(bestsellers, list)

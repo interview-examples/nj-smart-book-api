@@ -5,19 +5,20 @@ from books.models import Book, Author
 from books.serializers import (
     BookSerializer,
     EnrichedBookSerializer,
-    BookCreateUpdateSerializer
+    BookCreateUpdateSerializer,
 )
+
 
 class BookSerializerTests(TestCase):
     """Tests for BookSerializer."""
 
     def setUp(self):
-        self.author = Author.objects.create(name='Test Author')
+        self.author = Author.objects.create(name="Test Author")
         self.book_data = {
-            'title': 'Test Book',
-            'isbn': '9780201896831',
-            'description': 'Test description of the book',
-            'published_date': '2023-01-01'
+            "title": "Test Book",
+            "isbn": "9780201896831",
+            "description": "Test description of the book",
+            "published_date": "2023-01-01",
         }
         self.book = Book.objects.create(**self.book_data)
         self.book.authors.add(self.author)
@@ -25,32 +26,33 @@ class BookSerializerTests(TestCase):
 
     def test_contains_expected_fields(self):
         data = self.serializer.data
-        self.assertCountEqual(data.keys(), [
-            'id', 'title', 'authors', 'isbn', 'description', 'published_date'
-        ])
+        self.assertCountEqual(
+            data.keys(),
+            ["id", "title", "authors", "isbn", "description", "published_date"],
+        )
 
     def test_title_field_content(self):
         data = self.serializer.data
-        self.assertEqual(data['title'], self.book_data['title'])
+        self.assertEqual(data["title"], self.book_data["title"])
 
     def test_authors_field_content(self):
         data = self.serializer.data
-        self.assertTrue(isinstance(data['authors'], list))
-        self.assertEqual(len(data['authors']), 1)
-        if isinstance(data['authors'][0], dict):
-            self.assertEqual(data['authors'][0]['name'], 'Test Author')
+        self.assertTrue(isinstance(data["authors"], list))
+        self.assertEqual(len(data["authors"]), 1)
+        if isinstance(data["authors"][0], dict):
+            self.assertEqual(data["authors"][0]["name"], "Test Author")
         else:
-            self.assertEqual(data['authors'][0], 'Test Author')
+            self.assertEqual(data["authors"][0], "Test Author")
 
 
 class EnrichedBookSerializerTests(TestCase):
     def setUp(self):
-        self.author = Author.objects.create(name='Test Author')
+        self.author = Author.objects.create(name="Test Author")
         self.book_data = {
-            'title': 'Test Book',
-            'isbn': '9780201896831',
-            'description': 'Test description of the book',
-            'published_date': '2023-01-01'
+            "title": "Test Book",
+            "isbn": "9780201896831",
+            "description": "Test description of the book",
+            "published_date": "2023-01-01",
         }
         self.book = Book.objects.create(**self.book_data)
         self.book.authors.add(self.author)
@@ -59,47 +61,52 @@ class EnrichedBookSerializerTests(TestCase):
     def test_contains_expected_fields(self):
         data = self.serializer.data
         expected_fields = [
-            'id', 'title', 'authors', 'isbn', 'description', 
-            'published_date', 'enriched_data'
+            "id",
+            "title",
+            "authors",
+            "isbn",
+            "description",
+            "published_date",
+            "enriched_data",
         ]
         self.assertCountEqual(data.keys(), expected_fields)
 
     def test_enriched_data_structure(self):
         data = self.serializer.data
-        self.assertIn('enriched_data', data)
+        self.assertIn("enriched_data", data)
 
 
 class BookCreateUpdateSerializerTests(TestCase):
     """Tests for BookCreateUpdateSerializer."""
 
     def setUp(self):
-        self.author = Author.objects.create(name='New Test Author')
+        self.author = Author.objects.create(name="New Test Author")
         self.valid_data = {
-            'title': 'New Test Book',
-            'authors': [self.author.name],
-            'isbn': '9780132350884',
-            'description': 'New test description',
-            'published_date': '2023-01-01'
+            "title": "New Test Book",
+            "authors": [self.author.name],
+            "isbn": "9780132350884",
+            "description": "New test description",
+            "published_date": "2023-01-01",
         }
         self.invalid_isbn_data = {
-            'title': 'Invalid ISBN Book',
-            'authors': [self.author.name],
-            'isbn': '978-0201-6831',  
-            'description': 'Book with invalid ISBN',
-            'published_date': '2023-01-01'
+            "title": "Invalid ISBN Book",
+            "authors": [self.author.name],
+            "isbn": "978-0201-6831",
+            "description": "Book with invalid ISBN",
+            "published_date": "2023-01-01",
         }
         self.invalid_date_data = {
-            'title': 'Invalid Date Book',
-            'authors': [self.author.name],
-            'isbn': '9780132350884',
-            'description': 'Book with invalid date',
-            'published_date': 'not-a-date'
+            "title": "Invalid Date Book",
+            "authors": [self.author.name],
+            "isbn": "9780132350884",
+            "description": "Book with invalid date",
+            "published_date": "not-a-date",
         }
         self.partial_data = {
-            'title': 'Partial Book',
-            'authors': [self.author.name],
-            'isbn': '9780132350884',
-            'published_date': '2023-01-01'  
+            "title": "Partial Book",
+            "authors": [self.author.name],
+            "isbn": "9780132350884",
+            "published_date": "2023-01-01",
         }
 
     def test_validate_valid_data(self):
@@ -109,68 +116,71 @@ class BookCreateUpdateSerializerTests(TestCase):
     def test_validate_invalid_isbn(self):
         serializer = BookCreateUpdateSerializer(data=self.invalid_isbn_data)
         self.assertFalse(serializer.is_valid())
-        self.assertIn('isbn', serializer.errors)
+        self.assertIn("isbn", serializer.errors)
 
     def test_validate_invalid_date(self):
         serializer = BookCreateUpdateSerializer(data=self.invalid_date_data)
         self.assertFalse(serializer.is_valid())
-        self.assertIn('published_date', serializer.errors)
+        self.assertIn("published_date", serializer.errors)
 
     def test_create_with_partial_data(self):
         serializer = BookCreateUpdateSerializer(data=self.partial_data)
         self.assertTrue(serializer.is_valid())
         book = serializer.save()
-        self.assertEqual(book.title, self.partial_data['title'])
-        self.assertEqual(book.authors.count(), 1)  
-        self.assertEqual(book.isbn, self.partial_data['isbn'])
+        self.assertEqual(book.title, self.partial_data["title"])
+        self.assertEqual(book.authors.count(), 1)
+        self.assertEqual(book.isbn, self.partial_data["isbn"])
 
     def test_update_existing_book(self):
-        book = Book.objects.create(**{
-            'title': 'Original Title',
-            'isbn': '9780132350884',
-            'description': 'Original description',
-            'published_date': '2023-01-01'
-        })
+        book = Book.objects.create(
+            **{
+                "title": "Original Title",
+                "isbn": "9780132350884",
+                "description": "Original description",
+                "published_date": "2023-01-01",
+            }
+        )
         book.authors.add(self.author)
         update_data = {
-            'title': 'Updated Title',
-            'description': 'Updated description',
-            'authors': [self.author.name]
+            "title": "Updated Title",
+            "description": "Updated description",
+            "authors": [self.author.name],
         }
         serializer = BookCreateUpdateSerializer(
-            instance=book,
-            data=update_data,
-            partial=True
+            instance=book, data=update_data, partial=True
         )
         self.assertTrue(serializer.is_valid())
         updated_book = serializer.save()
-        self.assertEqual(updated_book.title, update_data['title'])
-        self.assertEqual(updated_book.description, update_data['description'])
+        self.assertEqual(updated_book.title, update_data["title"])
+        self.assertEqual(updated_book.description, update_data["description"])
         self.assertEqual(updated_book.authors.count(), 1)
-        self.assertEqual(updated_book.isbn, '9780132350884')
+        self.assertEqual(updated_book.isbn, "9780132350884")
 
     def test_auto_fill_functionality(self):
         data_with_auto_fill = {
-            'title': 'Auto Fill Book',
-            'isbn': '9781617294136',
-            'authors': [self.author.name],
-            'published_date': '2023-01-01',
-            'auto_fill': True
+            "title": "Auto Fill Book",
+            "isbn": "9781617294136",
+            "authors": [self.author.name],
+            "published_date": "2023-01-01",
+            "auto_fill": True,
         }
         from books.services.models.data_models import BookEnrichmentData
+
         mock_data = BookEnrichmentData(
-            isbn='9781617294136',
-            title='Spring in Action',
-            authors=['Craig Walls'],
-            description='Test description from external API',
-            published_date='2023-01-01'
+            isbn="9781617294136",
+            title="Spring in Action",
+            authors=["Craig Walls"],
+            description="Test description from external API",
+            published_date="2023-01-01",
         )
-        with patch('books.services.enrichment.service.BookEnrichmentService.enrich_book_data') as mock_enrich:
+        with patch(
+            "books.services.enrichment.service.BookEnrichmentService.enrich_book_data"
+        ) as mock_enrich:
             mock_enrich.return_value = mock_data
             serializer = BookCreateUpdateSerializer(data=data_with_auto_fill)
             self.assertTrue(serializer.is_valid())
             book = serializer.save()
-            self.assertEqual(book.title, data_with_auto_fill['title'])
-            self.assertEqual(book.isbn, data_with_auto_fill['isbn'])
+            self.assertEqual(book.title, data_with_auto_fill["title"])
+            self.assertEqual(book.isbn, data_with_auto_fill["isbn"])
             self.assertIsNotNone(book.authors.count())
             self.assertIsNotNone(book.description)

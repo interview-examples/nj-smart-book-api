@@ -9,7 +9,11 @@ from django.core.cache import cache
 import requests
 import json
 
-from books.services.apis.base import APIException, APITimeoutException, APIResponseException
+from books.services.apis.base import (
+    APIException,
+    APITimeoutException,
+    APIResponseException,
+)
 
 
 class BaseAPIServiceTestCase(TestCase):
@@ -105,7 +109,9 @@ class BaseAPIServiceTestCase(TestCase):
         """
         return json.JSONDecodeError("Invalid JSON", "", 0)
 
-    def assert_api_exception(self, exception, expected_type, expected_message_part=None):
+    def assert_api_exception(
+        self, exception, expected_type, expected_message_part=None
+    ):
         """
         Assert that exception is of expected type and has expected message part.
 
@@ -138,21 +144,13 @@ class MockResponses:
                         "description": "Test Description",
                         "pageCount": 100,
                         "categories": ["Test Category"],
-                        "imageLinks": {
-                            "thumbnail": "http://test.com/thumbnail.jpg"
-                        },
+                        "imageLinks": {"thumbnail": "http://test.com/thumbnail.jpg"},
                         "language": "en",
                         "industryIdentifiers": [
-                            {
-                                "type": "ISBN_13",
-                                "identifier": "9781234567890"
-                            },
-                            {
-                                "type": "ISBN_10",
-                                "identifier": "1234567890"
-                            }
-                        ]
-                    }
+                            {"type": "ISBN_13", "identifier": "9781234567890"},
+                            {"type": "ISBN_10", "identifier": "1234567890"},
+                        ],
+                    },
                 }
             ]
         }
@@ -173,21 +171,13 @@ class MockResponses:
                         "description": "Test Description 1",
                         "pageCount": 100,
                         "categories": ["Test Category"],
-                        "imageLinks": {
-                            "thumbnail": "http://test.com/thumbnail1.jpg"
-                        },
+                        "imageLinks": {"thumbnail": "http://test.com/thumbnail1.jpg"},
                         "language": "en",
                         "industryIdentifiers": [
-                            {
-                                "type": "ISBN_13",
-                                "identifier": "9781234567890"
-                            },
-                            {
-                                "type": "ISBN_10",
-                                "identifier": "1234567890"
-                            }
-                        ]
-                    }
+                            {"type": "ISBN_13", "identifier": "9781234567890"},
+                            {"type": "ISBN_10", "identifier": "1234567890"},
+                        ],
+                    },
                 },
                 {
                     "id": "test_id_2",
@@ -200,24 +190,16 @@ class MockResponses:
                         "description": "Test Description 2",
                         "pageCount": 200,
                         "categories": ["Test Category"],
-                        "imageLinks": {
-                            "thumbnail": "http://test.com/thumbnail2.jpg"
-                        },
+                        "imageLinks": {"thumbnail": "http://test.com/thumbnail2.jpg"},
                         "language": "en",
                         "industryIdentifiers": [
-                            {
-                                "type": "ISBN_13",
-                                "identifier": "9780987654321"
-                            },
-                            {
-                                "type": "ISBN_10",
-                                "identifier": "0987654321"
-                            }
-                        ]
-                    }
-                }
+                            {"type": "ISBN_13", "identifier": "9780987654321"},
+                            {"type": "ISBN_10", "identifier": "0987654321"},
+                        ],
+                    },
+                },
             ],
-            "totalItems": 2
+            "totalItems": 2,
         }
 
     @staticmethod
@@ -227,32 +209,20 @@ class MockResponses:
             "ISBN:9781234567890": {
                 "title": "Test Book",
                 "subtitle": "A Test Book",
-                "authors": [
-                    {
-                        "key": "/authors/OL123456A"
-                    }
-                ],
+                "authors": [{"key": "/authors/OL123456A"}],
                 "publishers": ["Test Publisher"],
                 "publish_date": "2021",
                 "number_of_pages": 100,
                 "subjects": ["Test Category"],
-                "cover": {
-                    "medium": "http://test.com/thumbnail.jpg"
-                },
-                "languages": [
-                    {
-                        "key": "/languages/eng"
-                    }
-                ]
+                "cover": {"medium": "http://test.com/thumbnail.jpg"},
+                "languages": [{"key": "/languages/eng"}],
             }
         }
 
     @staticmethod
     def open_library_author_success():
         """Return a successful Open Library author API response."""
-        return {
-            "name": "Test Author"
-        }
+        return {"name": "Test Author"}
 
     @staticmethod
     def nytimes_review_success():
@@ -261,11 +231,8 @@ class MockResponses:
             "status": "OK",
             "num_results": 1,
             "results": [
-                {
-                    "summary": "Test Review Summary",
-                    "url": "http://test.com/review"
-                }
-            ]
+                {"summary": "Test Review Summary", "url": "http://test.com/review"}
+            ],
         }
 
     @staticmethod
@@ -282,8 +249,8 @@ class MockResponses:
                         "author": "Test Author",
                         "description": "Test Description",
                         "primary_isbn13": "9781234567890",
-                        "primary_isbn10": "1234567890"
+                        "primary_isbn10": "1234567890",
                     }
                 ]
-            }
+            },
         }

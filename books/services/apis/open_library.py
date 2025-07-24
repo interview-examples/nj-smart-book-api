@@ -9,7 +9,12 @@ from typing import Dict, Any, List, Optional
 
 from django.conf import settings
 
-from books.services.apis.base import BookDataService, APIException, APITimeoutException, APIResponseException
+from books.services.apis.base import (
+    BookDataService,
+    APIException,
+    APITimeoutException,
+    APIResponseException,
+)
 from books.services.models.data_models import BookEnrichmentData, IndustryIdentifier
 from books.services.caching.decorators import cached_api_call
 
@@ -23,17 +28,21 @@ class OpenLibraryService(BookDataService):
     """
 
     BASE_URL = "https://openlibrary.org"
-    CACHE_TIMEOUT = getattr(settings, 'OPEN_LIBRARY_CACHE_TIMEOUT', 14400)  # 4 hours default
+    CACHE_TIMEOUT = getattr(
+        settings, "OPEN_LIBRARY_CACHE_TIMEOUT", 14400
+    )  # 4 hours default
 
     def __init__(self):
         """Initialize the Open Library service."""
-        self.api_key = getattr(settings, 'OPEN_LIBRARY_API_KEY', None)
+        self.api_key = getattr(settings, "OPEN_LIBRARY_API_KEY", None)
 
-    def _make_request(self,
-                     url: str,
-                     params: Dict[str, Any] = None,
-                     headers: Dict[str, str] = None,
-                     timeout: int = 10) -> Any:
+    def _make_request(
+        self,
+        url: str,
+        params: Dict[str, Any] = None,
+        headers: Dict[str, str] = None,
+        timeout: int = 10,
+    ) -> Any:
         """
         Make a request to Open Library API with error handling.
 
@@ -53,10 +62,7 @@ class OpenLibraryService(BookDataService):
         """
         try:
             response = requests.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=timeout
+                url, params=params, headers=headers, timeout=timeout
             )
             response.raise_for_status()
             return response.json()
@@ -65,30 +71,30 @@ class OpenLibraryService(BookDataService):
             raise APITimeoutException(
                 message=f"Request to Open Library API timed out after {timeout}s",
                 source="OpenLibraryAPI",
-                original_error=e
+                original_error=e,
             )
 
         except requests.HTTPError as e:
-            status_code = e.response.status_code if hasattr(e, 'response') else None
+            status_code = e.response.status_code if hasattr(e, "response") else None
             raise APIResponseException(
                 message=f"HTTP error from Open Library API: {str(e)}",
                 source="OpenLibraryAPI",
                 original_error=e,
-                status_code=status_code
+                status_code=status_code,
             )
 
         except requests.RequestException as e:
             raise APIException(
                 message=f"Request error: {str(e)}",
                 source="OpenLibraryAPI",
-                original_error=e
+                original_error=e,
             )
         except ValueError as e:
             # JSON parsing error
             raise APIException(
                 message=f"Invalid JSON response: {str(e)}",
                 source="OpenLibraryAPI",
-                original_error=e
+                original_error=e,
             )
 
     @cached_api_call(cache_timeout=CACHE_TIMEOUT)
@@ -117,12 +123,14 @@ class OpenLibraryService(BookDataService):
             return None
 
     @cached_api_call(cache_timeout=CACHE_TIMEOUT)
-    def search_books(self,
-                    query: str = "",
-                    title: str = "",
-                    author: str = "",
-                    isbn: str = "",
-                    limit: int = 10) -> List[Dict[str, Any]]:
+    def search_books(
+        self,
+        query: str = "",
+        title: str = "",
+        author: str = "",
+        isbn: str = "",
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
         """
         Search for books in Open Library API.
 
@@ -159,13 +167,13 @@ class OpenLibraryService(BookDataService):
 
         try:
             response = self._make_request(url, params)
-            if not response or 'docs' not in response:
+            if not response or "docs" not in response:
                 return []
 
             results = []
-            for doc in response.get('docs', []):
+            for doc in response.get("docs", []):
                 # For each search result, fetch full book data if ISBN is available
-                isbn_list = doc.get('isbn', [])
+                isbn_list = doc.get("isbn", [])
                 if isbn_list and len(isbn_list) > 0:
                     book_data = self.get_book_data(isbn_list[0])
                     if book_data:
@@ -223,15 +231,17 @@ class OpenLibraryService(BookDataService):
 
         try:
             author_data = self._make_request(url)
-            if author_data and 'name' in author_data:
-                return author_data['name']
+            if author_data and "name" in author_data:
+                return author_data["name"]
             return ""
 
         except APIException as e:
             logger.error(f"Error retrieving author data for key {author_key}: {str(e)}")
             return ""
 
-    def to_enrichment_data(self, book_data: Dict[str, Any], base_isbn: str = "") -> BookEnrichmentData:
+    def to_enrichment_data(
+        self, book_data: Dict[str, Any], base_isbn: str = ""
+    ) -> BookEnrichmentData:
         """
         Convert Open Library API book data to BookEnrichmentData.
 
@@ -242,37 +252,37 @@ class OpenLibraryService(BookDataService):
         Returns:
             BookEnrichmentData: Converted enrichment data
         """
-        if not book_data or 'title' not in book_data:
+        if not book_data or "title" not in book_data:
             return None
 
         # Extract ISBN
         isbn = base_isbn
         if not isbn:
             # Try to find ISBN in identifiers
-            if 'identifiers' in book_data:
-                identifiers = book_data['identifiers']
-                if 'isbn_13' in identifiers and identifiers['isbn_13']:
-                    isbn = identifiers['isbn_13'][0]
-                elif 'isbn_10' in identifiers and identifiers['isbn_10']:
-                    isbn = identifiers['isbn_10'][0]
+            if "identifiers" in book_data:
+                identifiers = book_data["identifiers"]
+                if "isbn_13" in identifiers and identifiers["isbn_13"]:
+                    isbn = identifiers["isbn_13"][0]
+                elif "isbn_10" in identifiers and identifiers["isbn_10"]:
+                    isbn = identifiers["isbn_10"][0]
 
             # If still no ISBN, try other fields
             if not isbn:
-                if 'isbn_13' in book_data and book_data['isbn_13']:
-                    isbn = book_data['isbn_13'][0]
-                elif 'isbn_10' in book_data and book_data['isbn_10']:
-                    isbn = book_data['isbn_10'][0]
+                if "isbn_13" in book_data and book_data["isbn_13"]:
+                    isbn = book_data["isbn_13"][0]
+                elif "isbn_10" in book_data and book_data["isbn_10"]:
+                    isbn = book_data["isbn_10"][0]
 
         # Extract author information
         authors = []
-        if 'authors' in book_data and book_data['authors']:
-            for author_data in book_data['authors']:
+        if "authors" in book_data and book_data["authors"]:
+            for author_data in book_data["authors"]:
                 author_name = ""
-                if 'name' in author_data:
-                    author_name = author_data['name']
-                elif 'key' in author_data:
-                    author_name = self._get_author_name(author_data['key'])
-                
+                if "name" in author_data:
+                    author_name = author_data["name"]
+                elif "key" in author_data:
+                    author_name = self._get_author_name(author_data["key"])
+
                 if author_name:
                     authors.append(author_name)
 
@@ -281,54 +291,55 @@ class OpenLibraryService(BookDataService):
             authors = []
 
         # Extract description
-        description = book_data.get('description', '')
-        if isinstance(description, dict) and 'value' in description:
-            description = description['value']
+        description = book_data.get("description", "")
+        if isinstance(description, dict) and "value" in description:
+            description = description["value"]
 
         # Create industry identifiers
         industry_identifiers = []
 
         # Add ISBN-13
-        if 'identifiers' in book_data and 'isbn_13' in book_data['identifiers']:
-            for id_val in book_data['identifiers']['isbn_13']:
-                industry_identifiers.append(IndustryIdentifier(
-                    type='ISBN-13',
-                    identifier=id_val
-                ))
+        if "identifiers" in book_data and "isbn_13" in book_data["identifiers"]:
+            for id_val in book_data["identifiers"]["isbn_13"]:
+                industry_identifiers.append(
+                    IndustryIdentifier(type="ISBN-13", identifier=id_val)
+                )
 
         # Add ISBN-10
-        if 'identifiers' in book_data and 'isbn_10' in book_data['identifiers']:
-            for id_val in book_data['identifiers']['isbn_10']:
-                industry_identifiers.append(IndustryIdentifier(
-                    type='ISBN-10',
-                    identifier=id_val
-                ))
+        if "identifiers" in book_data and "isbn_10" in book_data["identifiers"]:
+            for id_val in book_data["identifiers"]["isbn_10"]:
+                industry_identifiers.append(
+                    IndustryIdentifier(type="ISBN-10", identifier=id_val)
+                )
 
         # If no industry identifiers but we have an ISBN, add it
         if not industry_identifiers and isbn:
-            id_type = 'ISBN-13' if len(isbn) == 13 else 'ISBN-10' if len(isbn) == 10 else 'ISBN'
-            industry_identifiers.append(IndustryIdentifier(
-                type=id_type,
-                identifier=isbn
-            ))
+            id_type = (
+                "ISBN-13"
+                if len(isbn) == 13
+                else "ISBN-10" if len(isbn) == 10 else "ISBN"
+            )
+            industry_identifiers.append(
+                IndustryIdentifier(type=id_type, identifier=isbn)
+            )
 
         # Extract subjects/categories
         categories = []
-        if 'subjects' in book_data:
-            for subject in book_data['subjects']:
+        if "subjects" in book_data:
+            for subject in book_data["subjects"]:
                 if isinstance(subject, str):
                     categories.append(subject)
-                elif isinstance(subject, dict) and 'name' in subject:
-                    categories.append(subject['name'])
+                elif isinstance(subject, dict) and "name" in subject:
+                    categories.append(subject["name"])
 
         # Create thumbnail URL if we have an ISBN
         thumbnail = ""
         if isbn:
             thumbnail = f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
-        elif 'cover' in book_data:
-            cover_id = book_data['cover']
-            if isinstance(cover_id, dict) and 'medium' in cover_id:
-                thumbnail = cover_id['medium']
+        elif "cover" in book_data:
+            cover_id = book_data["cover"]
+            if isinstance(cover_id, dict) and "medium" in cover_id:
+                thumbnail = cover_id["medium"]
             else:
                 thumbnail = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
 
@@ -336,11 +347,11 @@ class OpenLibraryService(BookDataService):
         preview_link = f"https://openlibrary.org/isbn/{isbn}" if isbn else ""
 
         # Extract publish date
-        published_date = book_data.get('publish_date', '')
+        published_date = book_data.get("publish_date", "")
         if published_date:
             try:
                 # Extract just the year from the date string
-                published_date = published_date.split(',')[-1].strip()
+                published_date = published_date.split(",")[-1].strip()
                 if len(published_date) > 4:
                     published_date = published_date[-4:]
             except Exception as e:
@@ -349,19 +360,19 @@ class OpenLibraryService(BookDataService):
         # Create BookEnrichmentData
         return BookEnrichmentData(
             isbn=isbn,
-            title=book_data.get('title', ''),
+            title=book_data.get("title", ""),
             authors=authors,
             description=description,
             published_date=published_date,
-            page_count=book_data.get('number_of_pages', 0),
+            page_count=book_data.get("number_of_pages", 0),
             language=self._extract_language(book_data),
             categories=categories,
             thumbnail=thumbnail,
             preview_link=preview_link,
             rating=0.0,  # Open Library doesn't provide ratings
             reviews_count=0,
-            source='Open Library',
-            industry_identifiers=industry_identifiers
+            source="Open Library",
+            industry_identifiers=industry_identifiers,
         )
 
     def _extract_language(self, book_data: Dict[str, Any]) -> str:
@@ -374,12 +385,12 @@ class OpenLibraryService(BookDataService):
         Returns:
             str: Language code or empty string
         """
-        if 'languages' not in book_data or not book_data['languages']:
+        if "languages" not in book_data or not book_data["languages"]:
             return ""
 
-        language = book_data['languages'][0]
+        language = book_data["languages"][0]
         if isinstance(language, dict):
-            if 'key' in language:
-                return language['key'].split('/')[-1]
-            return language.get('name', '')
+            if "key" in language:
+                return language["key"].split("/")[-1]
+            return language.get("name", "")
         return str(language)

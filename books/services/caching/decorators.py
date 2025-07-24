@@ -15,7 +15,7 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 # Typing for function results
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class CacheKeyGenerator:
@@ -49,14 +49,14 @@ class CacheKeyGenerator:
         arg_dict = {}
 
         # If first argument is self or cls, skip it for the cache key
-        if args and hasattr(args[0], '__class__'):
+        if args and hasattr(args[0], "__class__"):
             method_args = args[1:]
         else:
             method_args = args
 
         # Add positional arguments with numeric keys
         for i, arg in enumerate(method_args):
-            arg_dict[f'arg_{i}'] = str(arg)
+            arg_dict[f"arg_{i}"] = str(arg)
 
         # Add keyword arguments, sorting to ensure consistent order
         for key, value in sorted(kwargs.items()):
@@ -71,9 +71,7 @@ class CacheKeyGenerator:
 
 
 def cached_api_call(
-    cache_timeout: int = 3600,
-    key_prefix: str = "",
-    skip_cache_on_error: bool = False
+    cache_timeout: int = 3600, key_prefix: str = "", skip_cache_on_error: bool = False
 ) -> Callable:
     """
     Decorator for caching API call results with advanced features.
@@ -89,6 +87,7 @@ def cached_api_call(
     Returns:
         Callable: Decorated function
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Optional[T]:
@@ -124,17 +123,25 @@ def cached_api_call(
                                 return any(contains_mock(v) for v in obj.values())
                             elif isinstance(obj, (list, tuple)):
                                 return any(contains_mock(item) for item in obj)
-                            elif hasattr(obj, '__dict__'):
-                                return any(contains_mock(v) for v in obj.__dict__.values())
+                            elif hasattr(obj, "__dict__"):
+                                return any(
+                                    contains_mock(v) for v in obj.__dict__.values()
+                                )
                             return False
 
                         if contains_mock(result):
-                            logger.debug(f"Skipping cache for {func.__name__} because result contains MagicMock objects")
+                            logger.debug(
+                                f"Skipping cache for {func.__name__} because result contains MagicMock objects"
+                            )
                         else:
                             cache.set(cache_key, result, cache_timeout)
-                            logger.debug(f"Cached result for {func.__name__} with key {cache_key}")
+                            logger.debug(
+                                f"Cached result for {func.__name__} with key {cache_key}"
+                            )
                     except Exception as e:
-                        logger.error(f"Error in caching result for {func.__name__}: {str(e)}")
+                        logger.error(
+                            f"Error in caching result for {func.__name__}: {str(e)}"
+                        )
 
                 return result
 
@@ -150,6 +157,7 @@ def cached_api_call(
                 return None
 
         return wrapper
+
     return decorator
 
 

@@ -7,22 +7,31 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('books', '0003_update_isbn_types'),
+        ("books", "0003_update_isbn_types"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='bookisbn',
-            options={'verbose_name': 'Book`s ISBN', 'verbose_name_plural': 'Books` ISBN'},
+            name="bookisbn",
+            options={
+                "verbose_name": "Book`s ISBN",
+                "verbose_name_plural": "Books` ISBN",
+            },
         ),
         migrations.AlterField(
-            model_name='bookisbn',
-            name='isbn',
-            field=models.CharField(max_length=13, unique=True, validators=[books.models.validate_isbn]),
+            model_name="bookisbn",
+            name="isbn",
+            field=models.CharField(
+                max_length=13, unique=True, validators=[books.models.validate_isbn]
+            ),
         ),
         migrations.AlterField(
-            model_name='bookisbn',
-            name='type',
-            field=models.CharField(choices=[('ISBN-10', 'ISBN-10'), ('ISBN-13', 'ISBN-13')], default='ISBN-13', max_length=10),
+            model_name="bookisbn",
+            name="type",
+            field=models.CharField(
+                choices=[("ISBN-10", "ISBN-10"), ("ISBN-13", "ISBN-13")],
+                default="ISBN-13",
+                max_length=10,
+            ),
         ),
     ]

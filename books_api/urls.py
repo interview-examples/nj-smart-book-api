@@ -14,28 +14,31 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
 
 from books_api.views import api_schema, api_docs
 
+
 def root_view(request):
-    return HttpResponse("Welcome to Smart Books API. Visit <a href='/api/v1/docs/'>API Documentation</a> for more information.")
+    return HttpResponse(
+        "Welcome to Smart Books API. Visit <a href='/api/v1/docs/'>API Documentation</a> for more information."
+    )
+
 
 urlpatterns = [
     # Admin
-    path('admin/', admin.site.urls),
-
+    path("admin/", admin.site.urls),
     # Root URL
-    path('', root_view, name='root'),
-
+    path("", root_view, name="root"),
     # API endpoints
-    path('api/v1/', include('books.urls')),
+    path("api/v1/", include("books.urls")),
 ]
 
 # API documentation - simple custom implementation
 urlpatterns += [
-    path('api/v1/schema/', api_schema, name='schema'),
-    path('api/v1/docs/', api_docs, name='swagger-ui'),
+    path("api/v1/schema/", api_schema, name="schema"),
+    path("api/v1/docs/", api_docs, name="swagger-ui"),
 ]
